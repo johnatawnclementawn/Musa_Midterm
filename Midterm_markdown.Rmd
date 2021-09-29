@@ -22,6 +22,8 @@ Variables <- load_variables(2019,
   mutate(Merge_name = paste(name,"E", sep =""))
 ```
 
+Website available for data https://open-data.bouldercolorado.gov/ 
+
 
 ```{r colorado_data}
 Col_Library <- st_read("https://opendata.arcgis.com/datasets/555e2ecd93db480daf427c8c93833d23_0.geojson") %>%
