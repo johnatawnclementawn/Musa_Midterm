@@ -1,0 +1,28 @@
+---
+title: "Hedonic Home Price Prediction"
+author: "Jonathon Sun, Johnathan Clementi"
+date: "9/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, esquisse, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot)
+
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+
+palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
+```
+
+## Pulling Data
+
+```{r tidycensus pressure, echo=FALSE}
+Variables <- load_variables(2019,
+                            "acs5",
+                            cache = TRUE) %>%
+  mutate(Merge_name = paste(name,"E", sep =""))
+```
+
+
+```{r}
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
