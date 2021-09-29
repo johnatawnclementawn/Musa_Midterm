@@ -23,6 +23,20 @@ Variables <- load_variables(2019,
 ```
 
 
-```{r}
+```{r colorado_data}
+Col_Library <- st_read("https://opendata.arcgis.com/datasets/555e2ecd93db480daf427c8c93833d23_0.geojson") %>%
+  st_drop_geometry()
+#geometry files did not include any data
+
+Awardees <- st_read("https://opendata.arcgis.com/datasets/dd51b62683a54f99b6ca2fb38a42ab06_0.geojson") %>%
+  st_drop_geometry()
+str(Col_Library)
+#geometry files did not include any data
+
+
+
+ggplot() +
+  geom_sf(data = Col_Library)
+```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
