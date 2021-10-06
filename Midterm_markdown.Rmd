@@ -61,7 +61,7 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
         county= c("Boulder"),
         geometry=T,
         output = "wide") %>% 
-  st_transform('ESRI:102728') %>%
+  st_transform('ESRI:102653') %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
 ggplot() +
@@ -72,12 +72,14 @@ Website available for data https://open-data.bouldercolorado.gov/
 
 
 ```{r colorado_data}
+# Use CRS ESRI:102653 - Colorado State Plane North: https://spatialreference.org/ref/esri/102653/
+
 
 # Locations of 19 libraries 
 ## https://opendata-bouldercounty.hub.arcgis.com/datasets/libraries-2/explore?location=40.001009%2C-105.302539%2C11.28
 
 Col_Library <- st_read("https://opendata.arcgis.com/datasets/7f4ea25ba87345e380d2e896611d2588_0.geojson") %>%
-  st_transform('ESRI:102286')
+  st_transform('ESRI:102653')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -86,7 +88,7 @@ ggplot() +
   labs(title = "library")
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
 Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform('ESRI:102286')
+  st_transform('ESRI:102653')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -99,7 +101,7 @@ Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94
 # Grocery Stores from Data Axle
 Grocery_Store <- read.csv("DataAxle_GroceryStores.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102286') 
+  st_transform('ESRI:102653') 
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -110,7 +112,7 @@ ggplot() +
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102286')
+  st_transform('ESRI:102653')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -122,17 +124,18 @@ ggplot() +
 #Education from DataAxle
 Education <- read.csv("DataAxle_Education.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102286')
+  st_transform('ESRI:102653')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent") +
   geom_sf(data = Education) +
   labs(title = "Schools")
+
 #Museums from DataAxle
 Museums <- read.csv("DataAxle_Musuems.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102286')
+  st_transform('ESRI:102653')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
