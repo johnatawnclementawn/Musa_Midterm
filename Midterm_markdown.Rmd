@@ -50,10 +50,16 @@ C <- load_variables(2019,
   filter(grepl("COST", concept)) %>%
   slice(1:19)
 
-
-
 Variables <- bind_rows(Variables, A, B, C)
 
+
+
+# Pull census data using tidycensus
+
+# Set CRS for project
+CO_statePlaneCentral = "ESRI:102254"
+
+# Read in census tracts
 acsTractsCol.2019.sf <- get_acs(geography = "tract",
         year = 2019,
         variables = Variables$name, 
@@ -61,23 +67,39 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
         county= c("Boulder"),
         geometry=T,
         output = "wide") %>% 
-  st_transform('ESRI:102653') %>%
+  st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
 ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf)
+  geom_sf(data = acsTractsCol.2019.sf) +
+  labs(title = "Census Tracts, Boulder County, Colorado")
+
+# Read in census Block groups
+acsBGCol.2019.sf <- get_acs(geography = "block group",
+        year = 2019,
+        variables = Variables$name, 
+        state="Colorado",
+        county= c("Boulder"),
+        geometry=T,
+        output = "wide") %>% 
+  st_transform(CO_statePlaneCentral) %>%
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
+ggplot() +
+  geom_sf(data = acsBGCol.2019.sf)+
+  labs(title = "Census Block Groups, Boulder County, Colorado")
+
 ```
 
 Website available for data https://open-data.bouldercolorado.gov/ 
 
 
 ```{r colorado_data}
-# Use CRS ESRI:102653 - Colorado State Plane North: https://spatialreference.org/ref/esri/102653/
 
 # Locations of Rental Properties (by license)
 ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
 rentalHomes <- st_read("https://opendata.arcgis.com/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0.geojson") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -90,7 +112,7 @@ ggplot() +
 ## https://open-data.bouldercolorado.gov/datasets/669935e6d13c406497cd9cbbbd7951b2_0/explore?location=40.023716%2C-105.253583%2C11.91
 ## For explanation on what ADU's are: https://planning.org/knowledgebase/accessorydwellings/ 
 adus <- st_read("https://opendata.arcgis.com/datasets/669935e6d13c406497cd9cbbbd7951b2_0.geojson") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -102,13 +124,14 @@ ggplot() +
 # Locations of 100 Year floodplain
 ## https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/explore?location=40.007803%2C-105.223741%2C12.50
 ## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
-flood <- st_read("https://opendata.arcgis.com/datasets/bfc343d63cf54831810b983b36ce6872_3.geojson") %>%
-  st_transform('ESRI:102653')
+boulderCo_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+  st_transform(CO_statePlaneCentral) %>%
+  st_intersection(.,st_union(acsTractsCol.2019.sf))
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent") +
-  geom_sf(data = flood) +
+  geom_sf(data = boulderCo_flood) +
   labs(title = "100 Year Floodplain")
 
 
@@ -116,7 +139,7 @@ ggplot() +
 ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
 ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
 zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -129,7 +152,7 @@ ggplot() +
 ## https://opendata-bouldercounty.hub.arcgis.com/datasets/libraries-2/explore?location=40.001009%2C-105.302539%2C11.28
 
 Col_Library <- st_read("https://opendata.arcgis.com/datasets/7f4ea25ba87345e380d2e896611d2588_0.geojson") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -140,7 +163,7 @@ ggplot() +
 
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
 Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -156,7 +179,7 @@ Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94
 # Urban trees
 ## https://open-data.bouldercolorado.gov/datasets/dbbae8bdb0a44d17934243b88e85ef2b_0/explore?location=40.015538%2C-105.275671%2C16.12
 trees <- st_read("https://opendata.arcgis.com/datasets/dbbae8bdb0a44d17934243b88e85ef2b_0.geojson") %>%
-    st_transform('ESRI:102653')
+    st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -168,7 +191,7 @@ ggplot() +
 # Grocery Stores from Data Axle
 Grocery_Store <- read.csv("DataAxle_GroceryStores.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102653') 
+  st_transform(CO_statePlaneCentral) 
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -179,7 +202,7 @@ ggplot() +
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -191,7 +214,7 @@ ggplot() +
 #Education from DataAxle
 Education <- read.csv("DataAxle_Education.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -202,7 +225,7 @@ ggplot() +
 #Museums from DataAxle
 Museums <- read.csv("DataAxle_Musuems.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -214,8 +237,9 @@ ggplot() +
 ```
 
 ```{r, trainingData}
-studentData <- st_read("studentData.geojson") %>%
-  st_transform('ESRI:102653')
+studentData <- st_read("studentData.geojson", crs = CO_statePlaneCentral) 
+
+summary(studentData)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
