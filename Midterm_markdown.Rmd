@@ -6,11 +6,18 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, esquisse, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot)
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, esquisse, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, rgdal)
+
+rm(list=ls()) ##Clear my objects from memory
+
+#Avoid getting results in scientific notation!
+options(scipen = 999)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
 palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
+
+
 ```
 
 ## Pulling Data
@@ -125,14 +132,26 @@ ggplot() +
 # Data originally for the whole state, subsetted to Boulder County via st_intersect
 ## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
 ## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
-boulderCo_flood <- st_read("boulderCo_100yrFloodZones.geojson") %>%
-  st_transform(CO_statePlaneCentral)
+
+
+# # Process for creating Boulder County Flood Plains shp
+# COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# boulderCo_flood <- COState_flood %>%
+#   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
+#   st_sf()
+# 
+# # Create Geopackage for ease of transport - only one file
+# st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
+
+boulderCo_flood_shp <- st_read("boulderCo_100yrFloodZones.gpkg")
+
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent") +
-  geom_sf(data = boulderCo_flood) +
-  labs(title = "100 Year Floodplain")
+  geom_sf(data = boulderCo_flood_shp)
 
 
 # Locations of Zoning districts
