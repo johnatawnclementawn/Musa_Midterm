@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, esquisse, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, rgdal)
 
-rm(list=ls()) ##Clear my objects from memory
+# rm(list=ls()) ##Clear my objects from memory
 
 #Avoid getting results in scientific notation!
 options(scipen = 999)
@@ -267,6 +267,107 @@ ggplot() +
   labs(title = "Training Data")
 ```
 
+# Exploratory analysis
+
+Visualize price per sq foot
+```{r}
+BCC_houses <- studentData %>%
+  mutate(pricePerSF = price/TotalFinishedSF,
+         age = 2021 - builtYear,
+         iprvmntAge = EffectiveYear - builtYear) %>%
+    select(-Stories, -UnitCount)
+
+ggplot() +
+  geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
+  geom_sf(data = BCC_houses, aes(colour = q5(pricePerSF)), 
+          show.legend = "point", size = .75) +
+  scale_colour_manual(values = palette5,
+                   labels=qBr(BCC_houses,"pricePerSF"),
+                   name="Quintile\nBreaks") +
+  labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
+  mapTheme()
+```
+
+Visualize price as a function of various continuous variables
+```{r}
+st_drop_geometry(BCC_houses) %>% 
+  dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
+  filter(price <= 5000000, age < 500) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_point(size = .5) + geom_smooth(method = "lm", se=F, colour = "#FA7800") +
+     facet_wrap(~Variable, ncol = 3, scales = "free") +
+     labs(title = "Price as a function of continuous variables") +
+     plotTheme()
+```
+
+Price as a function of categorical variables
+```{r, fig.height=15, fig.width=10}
+st_drop_geometry(BCC_houses) %>% 
+  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
+  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
+  filter(price <= 5000000) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
+     facet_wrap(~Variable, ncol = 1, scales = "free") +
+     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
+     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Correlation matrix
+```{r}
+numericVars <- 
+  select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
+  select(-MUSA_ID, )
+
+ggcorrplot(
+  round(cor(numericVars), 1), 
+  p.mat = cor_pmat(numericVars),
+  colors = c("#25CB10", "white", "#FA7800"),
+  type="lower",
+  insig = "blank") +  
+    labs(title = "Correlation across numeric variables")
+```
+
+# OLS
+```{r}
+cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
+
+livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
+
+summary(livingReg)
+```
+
+Multiple regression
+```{r}
+reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
+                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
+                                               nbrFullBaths, designCodeDscr, 
+                                               ConstCodeDscr, carStorageTypeDscr,
+                                               bsmtSF, AcDscr,  HeatingDscr))
+summary(reg1)
+```
+
+Testing accuracy using MAE
+```{r}
+inTrain <- createDataPartition(
+              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
+              p = .60, list = FALSE)
+boston.training <- boston.sf[inTrain,] 
+boston.test <- boston.sf[-inTrain,]  
+
+reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>% 
+                                    dplyr::select(SalePrice, LivingArea, Style, 
+                                               GROSS_AREA, NUM_FLOORS.cat,
+                                               R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
+                                               R_KITCH, R_AC, R_FPLACE,
+                                               crimes.Buffer))
+```
 
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+
+```
+
