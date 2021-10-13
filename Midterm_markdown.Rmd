@@ -349,3 +349,25 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>%
 summary(reg1)
 ```
 
+Testing accuracy using MAE
+```{r}
+inTrain <- createDataPartition(
+              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
+              p = .60, list = FALSE)
+boston.training <- boston.sf[inTrain,] 
+boston.test <- boston.sf[-inTrain,]  
+
+reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>% 
+                                    dplyr::select(SalePrice, LivingArea, Style, 
+                                               GROSS_AREA, NUM_FLOORS.cat,
+                                               R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
+                                               R_KITCH, R_AC, R_FPLACE,
+                                               crimes.Buffer))
+```
+
+
+
+```{r}
+
+```
+
