@@ -23,9 +23,12 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 ## Pulling Data
 
 ```{r message=FALSE, warning=FALSE}
+# Set CRS for project
+CO_statePlaneCentral = "ESRI:102254"
+
 studentData.training <- st_read("studentData.geojson", crs = 'ESRI:102254') %>%
   filter(toPredict == 0) %>% 
-  st_transform('ESRI:102653')
+  st_transform(CO_statePlaneCentral)
 
 ```
 
@@ -74,9 +77,6 @@ Variables <- bind_rows(Variables, A, B, C)
 
 # Pull census data using tidycensus
 
-# Set CRS for project
-CO_statePlaneCentral = "ESRI:102254"
-
 # Read in census tracts
 
 acsTractsCol.2019.sf <- get_acs(geography = "tract",
@@ -86,7 +86,7 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
         county= c("Boulder"),
         geometry=T,
         output = "wide") %>% 
-  st_transform(CO_statePlaneCentral) %>%
+  st_transform(CO_statePlaneCentral)%>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
 #Unified School District
@@ -96,16 +96,31 @@ acsShoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
         state="Colorado",
         geometry=T,
         output = "wide") %>% 
-  st_transform('ESRI:102653') %>%
+  st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
-school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsShoolDistrctssCol.2019.sf )
+school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsShoolDistrctssCol.2019.sf)
 acsShoolDistrctssCol.2019.sf <- acsShoolDistrctssCol.2019.sf %>%
   slice(school_districts[[1]])
+
+for (x in 1:nrow(acsShoolDistrctssCol.2019.sf)) {
+  print(x)
+  Name <- paste0('district',x)
+  
+district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
+  slice(x),
+  studentData.training)
+
+test <- studentData.training %>%
+                            mutate(Session = row_number(),
+                            !!(Name) := ifelse(Session %in% district[[x]], print(Name), "NO"))
+}
+
 
 district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
   slice(1),
   studentData.training)
+
 
 studentData.training <- studentData.training %>%
                             mutate(Session = row_number(),
