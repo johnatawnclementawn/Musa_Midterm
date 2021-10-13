@@ -274,7 +274,8 @@ Visualize price per sq foot
 BCC_houses <- studentData %>%
   mutate(pricePerSF = price/TotalFinishedSF,
          age = 2021 - builtYear,
-         iprvmntAge = 2021 - EffectiveYear)
+         iprvmntAge = EffectiveYear - builtYear) %>%
+    select(-Stories, -UnitCount)
 
 ggplot() +
   geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
@@ -317,7 +318,8 @@ st_drop_geometry(BCC_houses) %>%
 Correlation matrix
 ```{r}
 numericVars <- 
-  select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit()
+  select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
+  select(-MUSA_ID, )
 
 ggcorrplot(
   round(cor(numericVars), 1), 
@@ -326,5 +328,24 @@ ggcorrplot(
   type="lower",
   insig = "blank") +  
     labs(title = "Correlation across numeric variables")
+```
+
+# OLS
+```{r}
+cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
+
+livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
+
+summary(livingReg)
+```
+
+Multiple regression
+```{r}
+reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
+                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
+                                               nbrFullBaths, designCodeDscr, 
+                                               ConstCodeDscr, carStorageTypeDscr,
+                                               bsmtSF, AcDscr,  HeatingDscr))
+summary(reg1)
 ```
 
