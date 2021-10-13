@@ -6,7 +6,8 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, esquisse, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr)
+knitr::opts_chunk$set(warning = TRUE)
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
 
 options(scipen = 999)
 options(scipen =  "sf")
@@ -19,13 +20,19 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 
 ## Pulling Data
 
-```{r midterm_data}
-read.csv(".RData.csv")
+```{r message=FALSE, warning=FALSE}
+studentData.training <- st_read("studentData.geojson", crs = 'ESRI:102254') %>%
+  filter(toPredict == 0) %>% 
+  st_transform('ESRI:102653')
 
 ```
 
 
 ### Census 2019
+
+Look for zip codes not census tracts, because who purchases by census tracts?
+
+
 ```{r tidycensus_2019, echo=FALSE}
 
 #variables on frequency of Race
@@ -63,6 +70,7 @@ C <- load_variables(2019,
 
 Variables <- bind_rows(Variables, A, B, C)
 
+#Census Tracts
 acsTractsCol.2019.sf <- get_acs(geography = "tract",
         year = 2019,
         variables = Variables$name, 
@@ -73,13 +81,261 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
   st_transform('ESRI:102653') %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
+#Unified School District
+acsShoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
+        year = 2019,
+        variables = Variables$name, 
+        state="Colorado",
+        geometry=T,
+        output = "wide") %>% 
+  st_transform('ESRI:102653') %>%
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
+school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsShoolDistrctssCol.2019.sf )
+acsShoolDistrctssCol.2019.sf <- acsShoolDistrctssCol.2019.sf %>%
+  slice(school_districts[[1]])
+
+district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
+  slice(1),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Session = row_number(),
+                            District1 = ifelse(Session %in% district[[1]], "District1", "NO"))
+
+district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
+  slice(2),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(District2 = ifelse(Session %in% district[[1]], "District2", "NO"))
+
+district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
+  slice(3),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(District3 = ifelse(Session %in% district[[1]], "District3", "NO"))
+
+district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
+  slice(4),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(District4 = ifelse(Session %in% district[[1]], "District4", "NO"))
+
+A <- studentData.training %>%
+  select(50:54) %>%
+  pivot_longer(cols = 2:5, names_to = "District") %>%
+  filter(!value == "NO") %>%
+  select(1:3)
+
+studentData.training <- st_join(studentData.training, A, by = "Session") %>%
+  select(-c("District1","District2","District3","District4","Session.x","Session.y"))
 
 ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf)
+  geom_sf(data = acsShoolDistrctssCol.2019.sf,
+          fill = "red") +
+  geom_sf(data = st_union(acsTractsCol.2019.sf),
+          fill = "transparent")
+
+#Zip Code
+acsZipsCol.2019.sf <- get_acs(geography = "zcta",
+        year = 2019,
+        variables = Variables$name, 
+        geometry=T,
+        output = "wide") %>% 
+  st_transform('ESRI:102653') %>%
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
+zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
+acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
+  slice(zipcodes[[1]])
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(1),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Session = row_number(),
+                                   Zip1 = ifelse(Session %in% district[[1]], "Zip1", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(2),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip2 = ifelse(Session %in% district[[1]], "Zip2", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(3),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip3 = ifelse(Session %in% district[[1]], "Zip3", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(4),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip4 = ifelse(Session %in% district[[1]], "Zip4", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(5),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip5 = ifelse(Session %in% district[[1]], "Zip5", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(6),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip6 = ifelse(Session %in% district[[1]], "Zip6", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(7),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip7 = ifelse(Session %in% district[[1]], "Zi73", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(8),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip8 = ifelse(Session %in% district[[1]], "Zip8", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(9),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip9 = ifelse(Session %in% district[[1]], "Zip9", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(10),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip10 = ifelse(Session %in% district[[1]], "Zip10", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(11),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip11 = ifelse(Session %in% district[[1]], "Zip11", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(12),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip12 = ifelse(Session %in% district[[1]], "Zip12", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(13),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip13 = ifelse(Session %in% district[[1]], "Zip13", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(14),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip14 = ifelse(Session %in% district[[1]], "Zip14", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(15),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip15 = ifelse(Session %in% district[[1]], "Zip15", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(16),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip16 = ifelse(Session %in% district[[1]], "Zip16", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(17),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip17 = ifelse(Session %in% district[[1]], "Zip17", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(18),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip18 = ifelse(Session %in% district[[1]], "Zip18", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(19),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip19 = ifelse(Session %in% district[[1]], "Zip19", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(20),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip20 = ifelse(Session %in% district[[1]], "Zip20", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(21),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip21 = ifelse(Session %in% district[[1]], "Zip21", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(22),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                            mutate(Zip22 = ifelse(Session %in% district[[1]], "Zip22", "NO"))
+
+district <- st_intersects(acsZipsCol.2019.sf %>%
+  slice(23),
+  studentData.training)
+
+studentData.training <- studentData.training %>%
+                           mutate(Zip23 = ifelse(Session %in% district[[1]], "Zip23", "NO"))
+
+A <- studentData.training %>%
+  select(50:73) %>%
+  pivot_longer(cols = 2:23, names_to = "Zip") %>%
+  filter(!value == "NO") %>%
+  select(1:3)
+
+studentData.training <- st_join(studentData.training, A, by = "Session") %>%
+  select(-c("Zip1","Zip2","Zip3","Zip4","Zip5","Zip6","Zip7","Zip8","Zip9","Zip10",
+            "Zip11","Zip12","Zip13","Zip14","Zip15","Zip16","Zip17","Zip18","Zip19","Zip20",
+            "Zip21","Zip22","Zip23","Session.x"))
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf,
+          fill = "red") +
+  geom_sf(data = st_union(acsTractsCol.2019.sf),
+          fill = "grey")
 ```
 
 Census 2018
-```{r tidycensus_2018, echo=FALSE}
+
+CURRENTLY NOT RUNNING
+```{r tidycensus_2018, eval=FALSE, include=FALSE}
 
 #variables on frequency of Race
 Variables <- load_variables(2018,
@@ -129,6 +385,15 @@ acsTractsCol.2018.sf <- get_acs(geography = "tract",
 
 ggplot() +
   geom_sf(data = acsTractsCol.2018.sf)
+```
+
+# Fixed Effect Census tracts 
+
+```{r}
+Census_tracts <- unique(acsTractsCol.2019.sf$GEOID)
+z <- st_intersection(studentData, acsTractsCol.2019.sf %>%
+                  filter(GEOID == Census_tracts[1]))
+
 ```
 
 Website available for data https://open-data.bouldercolorado.gov/ 
@@ -243,15 +508,22 @@ ggplot() +
   labs(title = "Street Trees")
 
 
+```
+
+#Buffers
+
+```{r}
 # Grocery Stores from Data Axle
 Grocery_Store <- read.csv("DataAxle_GroceryStores.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
   st_transform('ESRI:102653') 
 
-Buffer_Grocery <- st_union(st_buffer(Grocery_Store, 5280) %>%
+Buffer_Grocery <- st_buffer(Grocery_Store, 5280) %>%
       mutate(Legend = "Buffer") %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer") %>%
+      dplyr::select(Legend)
+
+Buffer_Grocery_Union <- st_union(st_buffer(Grocery_Store, 5280) %>%
+      mutate(Legend = "Buffer") %>%
       dplyr::select(Legend))
 
 ggplot() +
@@ -262,13 +534,14 @@ ggplot() +
           fill = "transparent") +
   labs(title = "Grocery_Stores")
 
-allTracts.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID, Year)), 
+Grocery.rings <-
+  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
           multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
   st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsNJ.ALL.sf, GEOID), 
+  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
             by=c("GEOID"="GEOID")) %>%
   st_sf()
+
 
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
@@ -288,7 +561,6 @@ ggplot() +
           fill = "transparent") +
   labs(title = "Restaurants")
 
-
 #Education from DataAxle
 Education <- read.csv("DataAxle_Education.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
@@ -298,13 +570,6 @@ Buffer_Education <- st_union(st_buffer(Education, 5280) %>%
       mutate(Legend = "Buffer") %>%
       dplyr::select(Legend))
 
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = Education) +
-  geom_sf(data = Buffer_Education,
-          fill = "transparent") +
-  labs(title = "Schools")
 
 #Museums from DataAxle
 Museums <- read.csv("DataAxle_Musuems.csv") %>%
@@ -315,16 +580,45 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
       mutate(Legend = "Buffer") %>%
       dplyr::select(Legend))
 
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "white") +
-  geom_sf(data = Museums) +
-  geom_sf(data = Buffer_Museums,
-          fill = "transparent") +
-  labs(title = "Museums")
 
 ```
 
+
+#Nearest Neighbors
+
+```{r}
+## grovery Nearest Neighbor
+st_c <- st_coordinates
+
+## restaurante NN
+studentData.training <- studentData.training %>%
+  mutate(grocery_nn1 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 1),
+         grocery_nn2 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 2),
+         grocery_nn3 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 3),
+         grocery_nn4 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 4),
+         grocery_nn5 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 5))
+
+studentData.training <- studentData.training %>%
+  mutate(restaurant_nn1 = nn_function(st_c(studentData.training), st_c(Restaurants), 1),
+         restaurant_nn2 = nn_function(st_c(studentData.training), st_c(Restaurants), 2),
+         restaurant_nn3 = nn_function(st_c(studentData.training), st_c(Restaurants), 3),
+         restaurant_nn4 = nn_function(st_c(studentData.training), st_c(Restaurants), 4),
+         restaurant_nn5 = nn_function(st_c(studentData.training), st_c(Restaurants), 5))
+
+studentData.training <- studentData.training %>%
+  mutate(Education_nn1 = nn_function(st_c(studentData.training), st_c(Education), 1),
+         Education_nn2 = nn_function(st_c(studentData.training), st_c(Education), 2),
+         Education_nn3 = nn_function(st_c(studentData.training), st_c(Education), 3),
+         Education_nn4 = nn_function(st_c(studentData.training), st_c(Education), 4),
+         Education_nn5 = nn_function(st_c(studentData.training), st_c(Education), 5))
+
+studentData.training <- studentData.training %>%
+  mutate(Museums_nn1 = nn_function(st_c(studentData.training), st_c(Museums), 1),
+         Museums_nn2 = nn_function(st_c(studentData.training), st_c(Museums), 2),
+         Museums_nn3 = nn_function(st_c(studentData.training), st_c(Museums), 3),
+         Museums_nn4 = nn_function(st_c(studentData.training), st_c(Museums), 4),
+         Museums_nn5 = nn_function(st_c(studentData.training), st_c(Museums), 5))
+```
 
 ```{r Centroid, message=FALSE, warning=FALSE}
 # Creating centroids
@@ -389,16 +683,6 @@ ggplot() +
 ```
 
 
-```{r, trainingData}
-studentData <- st_read("studentData.geojson") %>%
-  st_transform('ESRI:102653')
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = studentData) +
-  labs(title = "Training Data")
-```
 
 
 
