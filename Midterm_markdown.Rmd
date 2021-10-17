@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 
-knitr::opts_chunk$set(warning = TRUE)
+knitr::opts_chunk$set(warning = FALSE)
 pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
 
 options(scipen = 999)
@@ -26,7 +26,7 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
-studentData.training <- st_read("studentData.geojson", crs = 'ESRI:102254') %>%
+studentData.training <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
   filter(toPredict == 0) %>% 
   st_transform(CO_statePlaneCentral)
 
@@ -88,9 +88,11 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
         output = "wide") %>% 
   st_transform(CO_statePlaneCentral)%>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+```
 
+```{r, schoolDistricts}
 #Unified School District
-acsShoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
+acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
         year = 2019,
         variables = Variables$name, 
         state="Colorado",
@@ -99,273 +101,244 @@ acsShoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
-school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsShoolDistrctssCol.2019.sf)
-acsShoolDistrctssCol.2019.sf <- acsShoolDistrctssCol.2019.sf %>%
+school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsSchoolDistrctssCol.2019.sf)
+acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
   slice(school_districts[[1]])
 
-for (x in 1:nrow(acsShoolDistrctssCol.2019.sf)) {
-  print(x)
-  Name <- paste0('district',x)
-  
-district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
-  slice(x),
-  studentData.training)
-
-test <- studentData.training %>%
-                            mutate(Session = row_number(),
-                            !!(Name) := ifelse(Session %in% district[[x]], print(Name), "NO"))
-}
-
-
-district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
-  slice(1),
-  studentData.training)
-
-
+# Assign a school district to each home
+# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
 studentData.training <- studentData.training %>%
-                            mutate(Session = row_number(),
-                            District1 = ifelse(Session %in% district[[1]], "District1", "NO"))
+  mutate(
+    District = paste0("District",as.integer(st_intersects(geometry,acsSchoolDistrctssCol.2019.sf)))
+    #,
+    #schoolDist_name = if_else(is.na(District), "", acsSchoolDistrctssCol.2019.sf$NAME[District])
+  )
 
-district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
-  slice(2),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(District2 = ifelse(Session %in% district[[1]], "District2", "NO"))
-
-district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
-  slice(3),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(District3 = ifelse(Session %in% district[[1]], "District3", "NO"))
-
-district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
-  slice(4),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(District4 = ifelse(Session %in% district[[1]], "District4", "NO"))
-
-A <- studentData.training %>%
-  select(50:54) %>%
-  pivot_longer(cols = 2:5, names_to = "District") %>%
-  filter(!value == "NO") %>%
-  select(1:3)
-
-studentData.training <- st_join(studentData.training, A, by = "Session") %>%
-  select(-c("District1","District2","District3","District4","Session.x","Session.y"))
 
 ggplot() +
-  geom_sf(data = acsShoolDistrctssCol.2019.sf,
+  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
           fill = "red") +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent")
+```
 
+
+```{r, zipCodes}
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         year = 2019,
         variables = Variables$name, 
         geometry=T,
         output = "wide") %>% 
-  st_transform('ESRI:102653') %>%
+  st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
 zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
   slice(zipcodes[[1]])
 
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(1),
-  studentData.training)
+# Assign a zipcode to each home
+# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
+zip_test <- studentData.training %>%
+  mutate(
+    Zip = paste0("Zip",as.integer(st_intersects(geometry,acsZipsCol.2019.sf)))
+    #,
+    #zipcode = if_else(is.na(Zip), "", acsSchoolDistrctssCol.2019.sf$NAME[Zip])
+  )
 
-studentData.training <- studentData.training %>%
-                            mutate(Session = row_number(),
-                                   Zip1 = ifelse(Session %in% district[[1]], "Zip1", "NO"))
 
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(2),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip2 = ifelse(Session %in% district[[1]], "Zip2", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(3),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip3 = ifelse(Session %in% district[[1]], "Zip3", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(4),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip4 = ifelse(Session %in% district[[1]], "Zip4", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(5),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip5 = ifelse(Session %in% district[[1]], "Zip5", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(6),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip6 = ifelse(Session %in% district[[1]], "Zip6", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(7),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip7 = ifelse(Session %in% district[[1]], "Zi73", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(8),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip8 = ifelse(Session %in% district[[1]], "Zip8", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(9),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip9 = ifelse(Session %in% district[[1]], "Zip9", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(10),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip10 = ifelse(Session %in% district[[1]], "Zip10", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(11),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip11 = ifelse(Session %in% district[[1]], "Zip11", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(12),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip12 = ifelse(Session %in% district[[1]], "Zip12", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(13),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip13 = ifelse(Session %in% district[[1]], "Zip13", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(14),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip14 = ifelse(Session %in% district[[1]], "Zip14", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(15),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip15 = ifelse(Session %in% district[[1]], "Zip15", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(16),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip16 = ifelse(Session %in% district[[1]], "Zip16", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(17),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip17 = ifelse(Session %in% district[[1]], "Zip17", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(18),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip18 = ifelse(Session %in% district[[1]], "Zip18", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(19),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip19 = ifelse(Session %in% district[[1]], "Zip19", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(20),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip20 = ifelse(Session %in% district[[1]], "Zip20", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(21),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip21 = ifelse(Session %in% district[[1]], "Zip21", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(22),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                            mutate(Zip22 = ifelse(Session %in% district[[1]], "Zip22", "NO"))
-
-district <- st_intersects(acsZipsCol.2019.sf %>%
-  slice(23),
-  studentData.training)
-
-studentData.training <- studentData.training %>%
-                           mutate(Zip23 = ifelse(Session %in% district[[1]], "Zip23", "NO"))
-
-A <- studentData.training %>%
-  select(50:73) %>%
-  pivot_longer(cols = 2:23, names_to = "Zip") %>%
-  filter(!value == "NO") %>%
-  select(1:3)
-
-studentData.training <- st_join(studentData.training, A, by = "Session") %>%
-  select(-c("Zip1","Zip2","Zip3","Zip4","Zip5","Zip6","Zip7","Zip8","Zip9","Zip10",
-            "Zip11","Zip12","Zip13","Zip14","Zip15","Zip16","Zip17","Zip18","Zip19","Zip20",
-            "Zip21","Zip22","Zip23","Session.x"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(1),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Session = row_number(),
+#                                    Zip1 = ifelse(Session %in% district[[1]], "Zip1", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(2),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip2 = ifelse(Session %in% district[[1]], "Zip2", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(3),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip3 = ifelse(Session %in% district[[1]], "Zip3", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(4),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip4 = ifelse(Session %in% district[[1]], "Zip4", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(5),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip5 = ifelse(Session %in% district[[1]], "Zip5", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(6),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip6 = ifelse(Session %in% district[[1]], "Zip6", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(7),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip7 = ifelse(Session %in% district[[1]], "Zi73", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(8),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip8 = ifelse(Session %in% district[[1]], "Zip8", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(9),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip9 = ifelse(Session %in% district[[1]], "Zip9", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(10),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip10 = ifelse(Session %in% district[[1]], "Zip10", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(11),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip11 = ifelse(Session %in% district[[1]], "Zip11", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(12),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip12 = ifelse(Session %in% district[[1]], "Zip12", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(13),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip13 = ifelse(Session %in% district[[1]], "Zip13", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(14),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip14 = ifelse(Session %in% district[[1]], "Zip14", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(15),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip15 = ifelse(Session %in% district[[1]], "Zip15", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(16),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip16 = ifelse(Session %in% district[[1]], "Zip16", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(17),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip17 = ifelse(Session %in% district[[1]], "Zip17", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(18),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip18 = ifelse(Session %in% district[[1]], "Zip18", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(19),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip19 = ifelse(Session %in% district[[1]], "Zip19", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(20),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip20 = ifelse(Session %in% district[[1]], "Zip20", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(21),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip21 = ifelse(Session %in% district[[1]], "Zip21", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(22),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                             mutate(Zip22 = ifelse(Session %in% district[[1]], "Zip22", "NO"))
+# 
+# district <- st_intersects(acsZipsCol.2019.sf %>%
+#   slice(23),
+#   studentData.training)
+# 
+# studentData.training <- studentData.training %>%
+#                            mutate(Zip23 = ifelse(Session %in% district[[1]], "Zip23", "NO"))
+# 
+# A <- studentData.training %>%
+#   select(50:73) %>%
+#   pivot_longer(cols = 2:23, names_to = "Zip") %>%
+#   filter(!value == "NO") %>%
+#   select(1:3)
+# 
+# studentData.training <- st_join(studentData.training, A, by = "Session") %>%
+#   select(-c("Zip1","Zip2","Zip3","Zip4","Zip5","Zip6","Zip7","Zip8","Zip9","Zip10",
+#             "Zip11","Zip12","Zip13","Zip14","Zip15","Zip16","Zip17","Zip18","Zip19","Zip20",
+#             "Zip21","Zip22","Zip23","Session.x"))
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf) +
   labs(title = "Census Tracts, Boulder County, Colorado")
 
-# Read in census Block groups
-acsBGCol.2019.sf <- get_acs(geography = "block group",
-        year = 2019,
-        variables = Variables$name, 
-        state="Colorado",
-        county= c("Boulder"),
-        geometry=T,
-        output = "wide") %>% 
-  st_transform(CO_statePlaneCentral) %>%
-  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
-
-ggplot() +
-  geom_sf(data = acsBGCol.2019.sf)+
-  labs(title = "Census Block Groups, Boulder County, Colorado")
+# # Read in census Block groups
+# acsBGCol.2019.sf <- get_acs(geography = "block group",
+#         year = 2019,
+#         variables = Variables$name, 
+#         state="Colorado",
+#         county= c("Boulder"),
+#         geometry=T,
+#         output = "wide") %>% 
+#   st_transform(CO_statePlaneCentral) %>%
+#   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+# 
+# ggplot() +
+#   geom_sf(data = acsBGCol.2019.sf)+
+#   labs(title = "Census Block Groups, Boulder County, Colorado")
 
 
 ```
@@ -417,7 +390,7 @@ acsTractsCol.2018.sf <- get_acs(geography = "tract",
         county= c("Boulder"),
         geometry=T,
         output = "wide") %>% 
-  st_transform('ESRI:102728') %>%
+  st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E"))) %>%
   mutate(Year = 2018)
 
@@ -429,7 +402,7 @@ ggplot() +
 
 ```{r}
 Census_tracts <- unique(acsTractsCol.2019.sf$GEOID)
-z <- st_intersection(studentData, acsTractsCol.2019.sf %>%
+z <- st_intersection(studentData.training, acsTractsCol.2019.sf %>%
                   filter(GEOID == Census_tracts[1]))
 
 ```
@@ -724,7 +697,7 @@ Data I don't know what to do with.
 ```{r}
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
 Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform('ESRI:102286')
+  st_transform(CO_statePlaneCentral)
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
