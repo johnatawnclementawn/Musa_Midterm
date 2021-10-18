@@ -22,7 +22,7 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 
 ## Pulling Data
 
-```{r message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=TRUE, include=FALSE}
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
@@ -38,7 +38,7 @@ studentData.training <- st_read("studentData.geojson", crs = 'ESRI:102254') %>%
 Look for zip codes not census tracts, because who purchases by census tracts?
 
 
-```{r tidycensus_2019, echo=FALSE}
+```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE}
 
 #variables on frequency of Race
 Variables <- load_variables(2019,
@@ -102,7 +102,10 @@ acsShoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
 school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsShoolDistrctssCol.2019.sf)
 acsShoolDistrctssCol.2019.sf <- acsShoolDistrctssCol.2019.sf %>%
   slice(school_districts[[1]])
+```
 
+
+```{r Programming_School_districts, eval=FALSE, include=FALSE}
 for (x in 1:nrow(acsShoolDistrctssCol.2019.sf)) {
   print(x)
   Name <- paste0('district',x)
@@ -115,8 +118,10 @@ test <- studentData.training %>%
                             mutate(Session = row_number(),
                             !!(Name) := ifelse(Session %in% district[[x]], print(Name), "NO"))
 }
+```
 
 
+```{r hardcoding_school_distrcits, message=FALSE, warning=FALSE}
 district <- st_intersects(acsShoolDistrctssCol.2019.sf %>%
   slice(1),
   studentData.training)
@@ -161,6 +166,10 @@ ggplot() +
           fill = "red") +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent")
+```
+
+```{r Zip_codes, eval=FALSE, include=FALSE}
+# ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
 
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
@@ -168,12 +177,17 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         variables = Variables$name, 
         geometry=T,
         output = "wide") %>% 
-  st_transform('ESRI:102653') %>%
+  st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
 
 zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
   slice(zipcodes[[1]])
+
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf)
+
 
 district <- st_intersects(acsZipsCol.2019.sf %>%
   slice(1),
@@ -337,17 +351,13 @@ district <- st_intersects(acsZipsCol.2019.sf %>%
 studentData.training <- studentData.training %>%
                            mutate(Zip23 = ifelse(Session %in% district[[1]], "Zip23", "NO"))
 
-A <- studentData.training %>%
-  select(50:73) %>%
-  pivot_longer(cols = 2:23, names_to = "Zip") %>%
+f <- studentData.training %>%
+  select(starts_with("Zip"), "Session") %>%
+  pivot_longer(cols = starts_with("Zip"), names_to = "remove") %>%
   filter(!value == "NO") %>%
   select(1:3)
 
-studentData.training <- st_join(studentData.training, A, by = "Session") %>%
-  select(-c("Zip1","Zip2","Zip3","Zip4","Zip5","Zip6","Zip7","Zip8","Zip9","Zip10",
-            "Zip11","Zip12","Zip13","Zip14","Zip15","Zip16","Zip17","Zip18","Zip19","Zip20",
-            "Zip21","Zip22","Zip23","Session.x"))
-
+studentData.training <- st_join(studentData.training, A, by = "Session")
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf) +
   labs(title = "Census Tracts, Boulder County, Colorado")
@@ -586,13 +596,12 @@ ggplot() +
   labs(title = "Grocery_Stores")
 
 Grocery.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
+  st_join(st_centroid(dplyr::select(studentData.training, address)), 
           multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
   st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
-            by=c("GEOID"="GEOID")) %>%
+  left_join(dplyr::select(studentData.training, address), 
+            by=c("address"="address")) %>%
   st_sf()
-
 
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
@@ -717,22 +726,6 @@ selectCentroids <-
   mutate(Select_type = "Select by Centroid")
 ```
 
-# Appendix
-
-Data I don't know what to do with. 
-
-```{r}
-#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform('ESRI:102286')
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = Addresses) +
-  labs(title = "Addresses")
-```
-
 # Exploratory analysis
 
 Visualize price per sq foot
@@ -831,8 +824,116 @@ reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>%
                                                crimes.Buffer))
 ```
 
+## JS edits
+Visualize price per sq foot
+```{r}
+BCC_houses <- studentData.training %>%
+  mutate(pricePerSF = price/TotalFinishedSF,
+         age = 2021 - builtYear,
+         iprvmntAge = EffectiveYear - builtYear) %>%
+    select(-Stories, -UnitCount)
 
+ggplot() +
+  geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
+  geom_sf(data = BCC_houses, aes(colour = q5(pricePerSF)), 
+          show.legend = "point", size = .75) +
+  scale_colour_manual(values = palette5,
+                   labels=qBr(BCC_houses,"pricePerSF"),
+                   name="Quintile\nBreaks") +
+  labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
+  mapTheme()
+```
+
+Visualize price as a function of various continuous variables
+```{r}
+st_drop_geometry(BCC_houses) %>% 
+  dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
+  filter(price <= 5000000, age < 500) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_point(size = .5) + geom_smooth(method = "lm", se=F, colour = "#FA7800") +
+     facet_wrap(~Variable, ncol = 3, scales = "free") +
+     labs(title = "Price as a function of continuous variables") +
+     plotTheme()
+```
+
+Price as a function of categorical variables
+```{r, fig.height=15, fig.width=10}
+st_drop_geometry(BCC_houses) %>% 
+  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
+  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
+  filter(price <= 5000000) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
+     facet_wrap(~Variable, ncol = 1, scales = "free") +
+     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
+     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Correlation matrix
+```{r}
+numericVars <- 
+  select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
+  select(-MUSA_ID, )
+
+ggcorrplot(
+  round(cor(numericVars), 1), 
+  p.mat = cor_pmat(numericVars),
+  colors = c("#25CB10", "white", "#FA7800"),
+  type="lower",
+  insig = "blank") +  
+    labs(title = "Correlation across numeric variables")
+```
+
+# OLS
+```{r}
+cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
+
+livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
+
+summary(livingReg)
+```
+
+Multiple regression
+```{r}
+reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
+                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
+                                               nbrFullBaths, designCodeDscr, 
+                                               ConstCodeDscr, carStorageTypeDscr,
+                                               bsmtSF, AcDscr,  HeatingDscr))
+summary(reg1)
+```
+
+Testing accuracy using MAE
+```{r}
+inTrain <- createDataPartition(
+              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
+              p = .60, list = FALSE)
+boston.training <- boston.sf[inTrain,] 
+boston.test <- boston.sf[-inTrain,]  
+
+reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>% 
+                                    dplyr::select(SalePrice, LivingArea, Style, 
+                                               GROSS_AREA, NUM_FLOORS.cat,
+                                               R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
+                                               R_KITCH, R_AC, R_FPLACE,
+                                               crimes.Buffer))
+```
+
+# Appendix
+
+Data I don't know what to do with. 
 
 ```{r}
+#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
+Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
+  st_transform('ESRI:102286')
 
+ggplot() +
+  geom_sf(data = st_union(acsTractsCol.2019.sf),
+          fill = "transparent") +
+  geom_sf(data = Addresses) +
+  labs(title = "Addresses")
 ```
+
