@@ -38,6 +38,8 @@ studentData <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
   dplyr::select(-Stories, -UnitCount, -Ac, -Heating, -ExtWallPrim, -ExtWallSec, -IntWall, -Roof_Cover, -status_cd) %>%
   st_transform(CO_statePlaneCentral) 
 
+studentData$pricePerSF <- as.integer(studentData$pricePerSF)
+
 # Check to see we aren't loosing records
 # testTrain <- studentData.training %>% na.omit()
 # addition <- rbind(studentData.training,testTrain)
@@ -120,7 +122,7 @@ acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
 
 # Assign a school district to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
-studentData.training <- studentData.training %>%
+studentData <- studentData %>%
   mutate(
     District = paste0("District",as.integer(st_intersects(geometry,acsSchoolDistrctssCol.2019.sf)))
     #,
@@ -141,14 +143,14 @@ boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474
   mutate(inCity = 1)
 
 # Determine if a house is within the city or not - used for cases in which only city data is available
-studentData.training <- studentData.training %>%
+studentData <- studentData %>%
   mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
 
-studentData.training <- studentData.training %>%
+studentData <- studentData %>%
   mutate(withinCity = replace_na(withinCity,"0"))
 
 # Change 
-studentData.training <- studentData.training %>%
+studentData <- studentData %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
 ```
 
@@ -174,7 +176,7 @@ acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
 
 # Assign a zipcode to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
-studentData.training <- studentData.training %>%
+studentData <- studentData %>%
   mutate(
     Zip = paste0("Zip",as.integer(st_intersects(geometry,acsZipsCol.2019.sf)))
     #,
@@ -262,7 +264,7 @@ ggplot() +
 
 ```{r}
 Census_tracts <- unique(acsTractsCol.2019.sf$GEOID)
-z <- st_intersection(studentData.training, acsTractsCol.2019.sf %>%
+z <- st_intersection(studentData, acsTractsCol.2019.sf %>%
                   filter(GEOID == Census_tracts[1]))
 
 ```
@@ -411,10 +413,10 @@ ggplot() +
   labs(title = "Grocery_Stores")
 
 #Grocery.rings <-
-#  st_join(st_centroid(dplyr::select(studentData.training, address)), 
+#  st_join(st_centroid(dplyr::select(studentData, address)), 
 #          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
 #  st_drop_geometry() %>%
-#  left_join(dplyr::select(studentData.training, address), 
+#  left_join(dplyr::select(studentData, address), 
 #            by=c("address"="address")) %>%
 #  st_sf()
 
@@ -466,33 +468,33 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
 st_c <- st_coordinates
 
 ## restaurante NN
-studentData.training <- studentData.training %>%
-  mutate(grocery_nn1 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 1),
-         grocery_nn2 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 2),
-         grocery_nn3 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 3),
-         grocery_nn4 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 4),
-         grocery_nn5 = nn_function(st_c(studentData.training), st_c(Grocery_Store), 5))
+studentData <- studentData %>%
+  mutate(grocery_nn1 = nn_function(st_c(studentData), st_c(Grocery_Store), 1),
+         grocery_nn2 = nn_function(st_c(studentData), st_c(Grocery_Store), 2),
+         grocery_nn3 = nn_function(st_c(studentData), st_c(Grocery_Store), 3),
+         grocery_nn4 = nn_function(st_c(studentData), st_c(Grocery_Store), 4),
+         grocery_nn5 = nn_function(st_c(studentData), st_c(Grocery_Store), 5))
 
-studentData.training <- studentData.training %>%
-  mutate(restaurant_nn1 = nn_function(st_c(studentData.training), st_c(Restaurants), 1),
-         restaurant_nn2 = nn_function(st_c(studentData.training), st_c(Restaurants), 2),
-         restaurant_nn3 = nn_function(st_c(studentData.training), st_c(Restaurants), 3),
-         restaurant_nn4 = nn_function(st_c(studentData.training), st_c(Restaurants), 4),
-         restaurant_nn5 = nn_function(st_c(studentData.training), st_c(Restaurants), 5))
+studentData <- studentData %>%
+  mutate(restaurant_nn1 = nn_function(st_c(studentData), st_c(Restaurants), 1),
+         restaurant_nn2 = nn_function(st_c(studentData), st_c(Restaurants), 2),
+         restaurant_nn3 = nn_function(st_c(studentData), st_c(Restaurants), 3),
+         restaurant_nn4 = nn_function(st_c(studentData), st_c(Restaurants), 4),
+         restaurant_nn5 = nn_function(st_c(studentData), st_c(Restaurants), 5))
 
-studentData.training <- studentData.training %>%
-  mutate(Education_nn1 = nn_function(st_c(studentData.training), st_c(Education), 1),
-         Education_nn2 = nn_function(st_c(studentData.training), st_c(Education), 2),
-         Education_nn3 = nn_function(st_c(studentData.training), st_c(Education), 3),
-         Education_nn4 = nn_function(st_c(studentData.training), st_c(Education), 4),
-         Education_nn5 = nn_function(st_c(studentData.training), st_c(Education), 5))
+studentData <- studentData %>%
+  mutate(Education_nn1 = nn_function(st_c(studentData), st_c(Education), 1),
+         Education_nn2 = nn_function(st_c(studentData), st_c(Education), 2),
+         Education_nn3 = nn_function(st_c(studentData), st_c(Education), 3),
+         Education_nn4 = nn_function(st_c(studentData), st_c(Education), 4),
+         Education_nn5 = nn_function(st_c(studentData), st_c(Education), 5))
 
-studentData.training <- studentData.training %>%
-  mutate(Museums_nn1 = nn_function(st_c(studentData.training), st_c(Museums), 1),
-         Museums_nn2 = nn_function(st_c(studentData.training), st_c(Museums), 2),
-         Museums_nn3 = nn_function(st_c(studentData.training), st_c(Museums), 3),
-         Museums_nn4 = nn_function(st_c(studentData.training), st_c(Museums), 4),
-         Museums_nn5 = nn_function(st_c(studentData.training), st_c(Museums), 5))
+studentData <- studentData %>%
+  mutate(Museums_nn1 = nn_function(st_c(studentData), st_c(Museums), 1),
+         Museums_nn2 = nn_function(st_c(studentData), st_c(Museums), 2),
+         Museums_nn3 = nn_function(st_c(studentData), st_c(Museums), 3),
+         Museums_nn4 = nn_function(st_c(studentData), st_c(Museums), 4),
+         Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
 ```
 
 
@@ -504,10 +506,10 @@ Visualize price per sq foot
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
-  geom_sf(data = studentData.training, aes(colour = q5(pricePerSF)), 
+  geom_sf(data = studentData, aes(colour = q5(pricePerSF)), 
           show.legend = "point", size = .75) +
   scale_colour_manual(values = palette5,
-                   labels=qBr(studentData.training,"pricePerSF"),
+                   labels=qBr(studentData,"pricePerSF"),
                    name="Quintile\nBreaks") +
   labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
   mapTheme()
@@ -515,7 +517,7 @@ ggplot() +
 
 Visualize price as a function of various continuous variables
 ```{r}
-st_drop_geometry(studentData.training) %>% 
+st_drop_geometry(studentData) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
   filter(price <= 5000000, age < 500) %>%
   gather(Variable, Value, -price) %>% 
@@ -530,8 +532,16 @@ st_drop_geometry(studentData.training) %>%
 # Present 4 home price correlation scatterplots that you think are of interest. I’m going to look for interesting open data that you’ve integrated with the home sale observations
 
 ```{r NN_Grocery_plots, echo=FALSE, message=FALSE, warning=FALSE}
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+max <- max(
+  studentData %>%
+  filter(toPredict == 0) %>%
+  select(price) %>%
+  st_drop_geometry())
+
+
+st_drop_geometry(studentData) %>%
+  filter(toPredict == 0) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID,starts_with("grocery")) %>%
   pivot_longer(cols = starts_with("grocery"), 
                names_to = "Nearest_Neighbor",
@@ -548,8 +558,8 @@ st_drop_geometry(studentData.training) %>%
 
 
 ```{r NN_Restaurant_plots, echo=FALSE, message=FALSE, warning=FALSE}
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID,starts_with("restaurant")) %>%
   pivot_longer(cols = starts_with("restaurant"), 
                names_to = "Nearest_Neighbor",
@@ -566,8 +576,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r NN_Education_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID,starts_with("Education")) %>%
   pivot_longer(cols = starts_with("Education"), 
                names_to = "Nearest_Neighbor",
@@ -584,8 +594,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r NN_Museums_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID,starts_with("Museums")) %>%
   pivot_longer(cols = starts_with("Museums"), 
                names_to = "Nearest_Neighbor",
@@ -603,8 +613,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r ComparingNN1_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn1")) %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
@@ -622,8 +632,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r ComparingNN2_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn2")) %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
@@ -640,8 +650,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r ComparingNN3_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn3")) %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
@@ -658,8 +668,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r ComparingNN4_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn4")) %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
@@ -676,8 +686,8 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r ComparingNN5_plots, echo=FALSE, message=FALSE, warning=FALSE}
 
-st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn5")) %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
@@ -694,36 +704,36 @@ st_drop_geometry(studentData.training) %>%
 
 ```{r NN_Indicator, echo=FALSE, message=FALSE, warning=FALSE}
 bind_rows(
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn1")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
                values_to = "Distance"),
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn2")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
                values_to = "Distance"),
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn3")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
                values_to = "Distance"),
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn4")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
                values_to = "Distance"),
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn5")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
@@ -739,21 +749,7 @@ bind_rows(
     plotTheme()
 ```
 
-Price as a function of categorical variables
-```{r, fig.height=15, fig.width=10}
-st_drop_geometry(studentData.training) %>% 
-  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
-  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
-  filter(price <= 5000000) %>%
-  gather(Variable, Value, -price) %>% 
-   ggplot(aes(Value, price)) +
-     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
-     facet_wrap(~Variable, ncol = 1, scales = "free") +
-     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
-     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
 
-Correlation matrix
 ```{r}
 studentData.training <- studentData %>%
     filter(toPredict == 0)
@@ -799,11 +795,35 @@ A <- bind_rows(
                values_to = "Distance")) %>%
   group_by(MUSA_ID) %>%
   summarize(mean_distance = mean(Distance)) 
+```
+Price as a function of categorical variables
+```{r, fig.height=15, fig.width=10}
+st_drop_geometry(studentData.training) %>% 
+  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
+  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
+  filter(price <= 5000000) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
+     facet_wrap(~Variable, ncol = 1, scales = "free") +
+     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
+     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Correlation matrix
+```{r}
+numericVars <- studentData.training %>%
+                          select(!contains("nn"))
 
 numericVars <- 
-  st_drop_geometry(studentData.training) %>% 
+  st_drop_geometry(numericVars) %>% 
   select(where(is.numeric)) %>%
-    select(!matches("%nn%")) %>%
+  na.omit()
+
+numericVars <- left_join(numericVars, A, by = "MUSA_ID")
+numericVars$mean_distance <- as.integer(numericVars$mean_distance)
+
+numericVars <- numericVars %>%
   na.omit()
 
 ggcorrplot(
@@ -822,14 +842,14 @@ rownames_to_column()
 
 A <- res %>%
   select(!c("bldgClass","toPredict")) %>%
-  slice(-6) %>%
-  pivot_longer(2:48) %>%
+  slice(-c(6,21)) %>%
+  pivot_longer(2:25) %>%
   filter(value >= 0.3 & value <0.5)
 
 B <- res %>%
   select(!c("bldgClass","toPredict")) %>%
-  slice(-6) %>%
-  pivot_longer(2:48) %>%
+  slice(-c(6,21)) %>%
+  pivot_longer(2:25) %>%
   filter(value >= -0.5 & value < -0.3)
 
 corlist <- bind_rows(A,B)
