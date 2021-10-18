@@ -239,7 +239,7 @@ z <- st_intersection(studentData.training, acsTractsCol.2019.sf %>%
 
 Website available for data https://open-data.bouldercolorado.gov/ 
 
-```{r colorado_data}
+```{r colorado_data, message=TRUE, warning=FALSE}
 
 # Locations of Rental Properties (by license)
 ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
@@ -470,7 +470,6 @@ studentData.training <- studentData.training %>%
 
 Visualize price per sq foot
 ```{r}
-
 BCC_houses <- studentData.training %>%
   mutate(pricePerSF = price/TotalFinishedSF,
          age = 2021 - builtYear,
@@ -739,6 +738,7 @@ numericVars <-
   select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
   select(-MUSA_ID, )
 
+
 ggcorrplot(
   round(cor(numericVars), 1), 
   p.mat = cor_pmat(numericVars),
@@ -746,10 +746,24 @@ ggcorrplot(
   type="lower",
   insig = "blank") +  
     labs(title = "Correlation across numeric variables")
+
+#trying to find variables that have a correlation value between 0.5 and -0.5
+res <- as.data.frame(cor(numericVars)) %>%
+rownames_to_column()
+
+#filter across multiple columns https://stackoverflow.com/questions/43938863/dplyr-filter-with-condition-on-multiple-columns 
+
+res %>%
+  select(!bldgClass) %>%
+  slice(-6) %>%
+  filter(
+    across(.cols = c(price,year),
+           .fns = unique)
+  )
 ```
 
 # OLS
-```{r}
+```{r warning=FALSE}
 cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
 
 livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
@@ -758,7 +772,7 @@ summary(livingReg)
 ```
 
 Multiple regression
-```{r}
+```{r message=FALSE, warning=FALSE}
 reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
                                  dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
                                                nbrFullBaths, designCodeDscr, 
