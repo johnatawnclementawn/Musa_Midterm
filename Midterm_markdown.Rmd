@@ -5,10 +5,13 @@ date: "9/29/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf, stargazer)
+
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
+library(ggcorrplot)
+
 
 options(scipen = 999)
 options(scipen =  "sf")
@@ -16,20 +19,36 @@ options(scipen =  "sf")
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
 palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
-
-
 ```
 
 ## Pulling Data
 
-```{r message=FALSE, warning=TRUE, include=FALSE}
+
+```{r housedata, message=FALSE, warning=FALSE, include=FALSE}
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
-studentData.training <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
-  filter(toPredict == 0) %>% 
-  st_transform(CO_statePlaneCentral)
+studentData <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
+  mutate(pricePerSF = price/TotalFinishedSF,
+         age = 2021 - builtYear,
+         iprvmntAge = EffectiveYear - builtYear) %>%
+  # Change NA address values to something R won't get rid of when we do na.omit()
+  mutate(address=replace_na(address,"No address given")) %>%
+  # Remove numeric categorical vars - there are already descriptions for these values in the df
+  dplyr::select(-Stories, -UnitCount, -Ac, -Heating, -ExtWallPrim, -ExtWallSec, -IntWall, -Roof_Cover, -status_cd) %>%
+  st_transform(CO_statePlaneCentral) 
 
+
+studentData.training <- studentData %>%
+    filter(toPredict == 0)
+
+studentData.challenge <- studentData %>%
+    filter(toPredict == 1)
+
+# Check to see we aren't loosing records
+# testTrain <- studentData.training %>% na.omit()
+# addition <- rbind(studentData.training,testTrain)
+# difference <- addition[! duplicated(addition, fromLast = TRUE) & seq(nrow(addition)) <= nrow(studentData.training), ]
 ```
 
 
@@ -122,6 +141,23 @@ ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent")
 ```
+```{r cityLimits}
+boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
+  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
+  mutate(inCity = 1)
+
+# Determine if a house is within the city or not - used for cases in which only city data is available
+studentData.training <- studentData.training %>%
+  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
+
+studentData.training <- studentData.training %>%
+  mutate(withinCity = replace_na(withinCity,"0"))
+
+# Change 
+studentData.training <- studentData.training %>%
+  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+```
+
 
 
 ```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
@@ -188,7 +224,7 @@ Variables <- load_variables(2018,
   slice(1:10)
 
 #variable median age, men and women not by race
-A <- load_variables(2018,
+A18 <- load_variables(2018,
                     "acs5",
                     cache = TRUE) %>%
   mutate(Merge_name = paste(name,"E", sep ="")) %>%
@@ -196,7 +232,7 @@ A <- load_variables(2018,
   slice(1:3)
 
 #Median Household Income
-B <- load_variables(2018,
+B18 <- load_variables(2018,
                     "acs5",
                     cache = TRUE) %>%
   mutate(Merge_name = paste(name,"E", sep ="")) %>%
@@ -204,14 +240,14 @@ B <- load_variables(2018,
   slice(1)
 
 # Cost of living
-C <- load_variables(2018,
+C18 <- load_variables(2018,
                     "acs5",
                     cache = TRUE) %>%
   mutate(Merge_name = paste(name,"E", sep ="")) %>%
   filter(grepl("COST", concept)) %>%
   slice(1:19)
 
-Variables <- bind_rows(Variables, A, B, C)
+Variables <- bind_rows(Variables, A18, B18, C18)
 
 acsTractsCol.2018.sf <- get_acs(geography = "tract",
         year = 2018,
@@ -241,68 +277,68 @@ Website available for data https://open-data.bouldercolorado.gov/
 
 ```{r colorado_data, message=TRUE, warning=FALSE}
 
-# Locations of Rental Properties (by license)
-## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
-rentalHomes <- st_read("https://opendata.arcgis.com/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = st_centroid(rentalHomes)) +
-  labs(title = "Rental Homes")
-
-
-# Locations of Accessory Dwelling Units
-## https://open-data.bouldercolorado.gov/datasets/669935e6d13c406497cd9cbbbd7951b2_0/explore?location=40.023716%2C-105.253583%2C11.91
-## For explanation on what ADU's are: https://planning.org/knowledgebase/accessorydwellings/ 
-adus <- st_read("https://opendata.arcgis.com/datasets/669935e6d13c406497cd9cbbbd7951b2_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = adus) +
-  labs(title = "Accessory Dwelling Units")
-
-
-# Locations of 100 Year floodplain within Boulder County
-# Data originally for the whole state, subsetted to Boulder County via st_intersect
-## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
-## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
-
-
-# # Process for creating Boulder County Flood Plains shp
-# COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+# # Locations of Rental Properties (by license)
+# ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
+# rentalHomes <- st_read("https://opendata.arcgis.com/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0.geojson") %>%
 #   st_transform(CO_statePlaneCentral)
 # 
-# boulderCo_flood <- COState_flood %>%
-#   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
-#   st_sf()
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = st_centroid(rentalHomes)) +
+#   labs(title = "Rental Homes")
 # 
-# # Create Geopackage for ease of transport - only one file
-# st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
-
-boulderCo_flood_shp <- st_read("boulderCo_100yrFloodZones.gpkg")
-
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = boulderCo_flood_shp)
-
-
-# Locations of Zoning districts
-## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
-## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
-zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = zoning) +
-  labs(title = "Zoning Districts")
+# 
+# # Locations of Accessory Dwelling Units
+# ## https://open-data.bouldercolorado.gov/datasets/669935e6d13c406497cd9cbbbd7951b2_0/explore?location=40.023716%2C-105.253583%2C11.91
+# ## For explanation on what ADU's are: https://planning.org/knowledgebase/accessorydwellings/ 
+# adus <- st_read("https://opendata.arcgis.com/datasets/669935e6d13c406497cd9cbbbd7951b2_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = adus) +
+#   labs(title = "Accessory Dwelling Units")
+# 
+# 
+# # Locations of 100 Year floodplain within Boulder County
+# # Data originally for the whole state, subsetted to Boulder County via st_intersect
+# ## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
+# ## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
+# 
+# 
+# # # Process for creating Boulder County Flood Plains shp
+# # COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+# #   st_transform(CO_statePlaneCentral)
+# # 
+# # boulderCo_flood <- COState_flood %>%
+# #   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
+# #   st_sf()
+# # 
+# # # Create Geopackage for ease of transport - only one file
+# # st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
+# 
+# boulderCo_flood_shp <- st_read("boulderCo_100yrFloodZones.gpkg")
+# 
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = boulderCo_flood_shp)
+# 
+# 
+# # Locations of Zoning districts
+# ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
+# ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
+# zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = zoning) +
+#   labs(title = "Zoning Districts")
 
 
 # Locations of 19 libraries 
@@ -329,14 +365,14 @@ ggplot() +
 
 
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = Addresses) +
-  labs(title = "Addresses")
+# Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = Addresses) +
+#   labs(title = "Addresses")
 
 # Properties managed by parks and recreation polygons ## https://open-data.bouldercolorado.gov/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1/explore?location=40.026750%2C-105.234200%2C12.05 
 Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1.geojson")
@@ -470,23 +506,14 @@ studentData.training <- studentData.training %>%
 
 Visualize price per sq foot
 ```{r}
-BCC_houses <- studentData.training %>%
-  mutate(pricePerSF = price/TotalFinishedSF,
-         age = 2021 - builtYear,
-         iprvmntAge = EffectiveYear - builtYear) %>%
-    select(-Stories, -UnitCount)
-
-#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
+# THIS IS WHERE WE CAN DIVERGE FROM TRAINING AND CHALLENGE DATASETS #
 
 ggplot() +
-  geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
-  geom_sf(data = BCC_houses, aes(colour = q5(pricePerSF)), 
+  geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
+  geom_sf(data = studentData.training, aes(colour = q5(pricePerSF)), 
           show.legend = "point", size = .75) +
   scale_colour_manual(values = palette5,
-                   labels=qBr(BCC_houses,"pricePerSF"),
+                   labels=qBr(studentData.training,"pricePerSF"),
                    name="Quintile\nBreaks") +
   labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
   mapTheme()
@@ -494,7 +521,7 @@ ggplot() +
 
 Visualize price as a function of various continuous variables
 ```{r}
-st_drop_geometry(BCC_houses) %>% 
+st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
   filter(price <= 5000000, age < 500) %>%
   gather(Variable, Value, -price) %>% 
@@ -720,7 +747,7 @@ bind_rows(
 
 Price as a function of categorical variables
 ```{r, fig.height=15, fig.width=10}
-st_drop_geometry(BCC_houses) %>% 
+st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
   # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
   filter(price <= 5000000) %>%
@@ -735,8 +762,10 @@ st_drop_geometry(BCC_houses) %>%
 Correlation matrix
 ```{r}
 numericVars <- 
-  select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
-  select(-MUSA_ID, )
+  st_drop_geometry(studentData.training) %>% 
+  select(where(is.numeric)) %>%
+  na.omit()
+  
 
 
 ggcorrplot(
@@ -759,28 +788,30 @@ res %>%
 ```
 
 # OLS
-```{r warning=FALSE}
-cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
+```{r}
+cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
 
-livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
+
+livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
 
 summary(livingReg)
 ```
 
 Multiple regression
-```{r message=FALSE, warning=FALSE}
-reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
-                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
-                                               nbrFullBaths, designCodeDscr, 
-                                               ConstCodeDscr, carStorageTypeDscr,
-                                               bsmtSF, AcDscr,  HeatingDscr))
+
+```{r}
+reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
+       dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
+        nbrFullBaths, designCodeDscr, 
+        ConstCodeDscr, carStorageTypeDscr,
+        bsmtSF, AcDscr,  HeatingDscr))
 summary(reg1)
 ```
 
 Testing accuracy using MAE
 ```{r}
 inTrain <- createDataPartition(
-              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
+              y = paste(studentData.training$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
               p = .60, list = FALSE)
 boston.training <- boston.sf[inTrain,] 
 boston.test <- boston.sf[-inTrain,]  
@@ -792,4 +823,9 @@ reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>%
                                                R_KITCH, R_AC, R_FPLACE,
                                                crimes.Buffer))
 ```
+
+
+
+# Appendix
+
 
