@@ -5,10 +5,11 @@ date: "9/29/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
 pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
+library(ggcorrplot)
 
 options(scipen = 999)
 options(scipen =  "sf")
@@ -131,6 +132,22 @@ ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent")
 ```
+```{r cityLimits}
+boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
+  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
+  mutate(inCity = 1)
+
+# Determine if a house is within the city or not - used for cases in which only city data is available
+studentData.training <- studentData.training %>%
+  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
+
+studentData.training <- studentData.training %>%
+  mutate(withinCity = replace_na(withinCity,"0"))
+
+studentData.training <- studentData.training %>%
+  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+```
+
 
 
 ```{r, zipCodes}
@@ -700,34 +717,18 @@ selectCentroids <-
   mutate(Select_type = "Select by Centroid")
 ```
 
-# Appendix
-
-Data I don't know what to do with. 
-
-```{r}
-#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-# Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-#   st_transform(CO_statePlaneCentral)
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = Addresses) +
-#   labs(title = "Addresses")
-```
 
 # Exploratory analysis
 
 Visualize price per sq foot
 ```{r}
 
-
 ggplot() +
-  geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
-  geom_sf(data = BCC_houses, aes(colour = q5(pricePerSF)), 
+  geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
+  geom_sf(data = studentData.training, aes(colour = q5(pricePerSF)), 
           show.legend = "point", size = .75) +
   scale_colour_manual(values = palette5,
-                   labels=qBr(BCC_houses,"pricePerSF"),
+                   labels=qBr(studentData.training,"pricePerSF"),
                    name="Quintile\nBreaks") +
   labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
   mapTheme()
@@ -735,7 +736,7 @@ ggplot() +
 
 Visualize price as a function of various continuous variables
 ```{r}
-st_drop_geometry(BCC_houses) %>% 
+st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
   filter(price <= 5000000, age < 500) %>%
   gather(Variable, Value, -price) %>% 
@@ -748,7 +749,7 @@ st_drop_geometry(BCC_houses) %>%
 
 Price as a function of categorical variables
 ```{r, fig.height=15, fig.width=10}
-st_drop_geometry(BCC_houses) %>% 
+st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
   # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
   filter(price <= 5000000) %>%
@@ -763,9 +764,9 @@ st_drop_geometry(BCC_houses) %>%
 Correlation matrix
 ```{r}
 numericVars <- 
-  st_drop_geometry(BCC_houses) %>% 
+  st_drop_geometry(studentData.training) %>% 
   select(where(is.numeric)) %>%
-  filter(toPredict == 0) %>% na.omit()
+  na.omit()
   
 
 ggcorrplot(
@@ -779,16 +780,16 @@ ggcorrplot(
 
 # OLS
 ```{r}
-cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
+cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
 
-livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
+livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
 
 summary(livingReg)
 ```
 
 Multiple regression
 ```{r}
-reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
+reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
                                  dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
                                                nbrFullBaths, designCodeDscr, 
                                                ConstCodeDscr, carStorageTypeDscr,
@@ -799,7 +800,7 @@ summary(reg1)
 Testing accuracy using MAE
 ```{r}
 inTrain <- createDataPartition(
-              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
+              y = paste(studentData.training$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
               p = .60, list = FALSE)
 boston.training <- boston.sf[inTrain,] 
 boston.test <- boston.sf[-inTrain,]  
@@ -813,7 +814,8 @@ reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>%
 ```
 
 
-
 ```{r}
 
 ```
+
+# Appendix
