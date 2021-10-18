@@ -8,8 +8,10 @@ output: html_document
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
+
 pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
 library(ggcorrplot)
+
 
 options(scipen = 999)
 options(scipen =  "sf")
@@ -21,7 +23,8 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 
 ## Pulling Data
 
-```{r housedata, message=FALSE, warning=FALSE}
+
+```{r housedata, message=FALSE, warning=FALSE, include=FALSE}
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
@@ -54,7 +57,7 @@ studentData.challenge <- studentData %>%
 Look for zip codes not census tracts, because who purchases by census tracts?
 
 
-```{r tidycensus_2019, echo=FALSE}
+```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE}
 
 #variables on frequency of Race
 Variables <- load_variables(2019,
@@ -106,7 +109,7 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 ```
 
-```{r, schoolDistricts}
+```{r message=FALSE, warning=FALSE}
 #Unified School District
 acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
         year = 2019,
@@ -120,6 +123,7 @@ acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)"
 school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsSchoolDistrctssCol.2019.sf)
 acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
   slice(school_districts[[1]])
+
 
 # Assign a school district to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
@@ -156,7 +160,10 @@ studentData.training <- studentData.training %>%
 
 
 
-```{r, zipCodes}
+```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
+# ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
+
+
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         year = 2019,
@@ -165,6 +172,7 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         output = "wide") %>% 
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
 
 zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
@@ -178,181 +186,6 @@ studentData.training <- studentData.training %>%
     #,
     #zipcode = if_else(is.na(Zip), "", acsSchoolDistrctssCol.2019.sf$NAME[Zip])
   )
-
-
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(1),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Session = row_number(),
-#                                    Zip1 = ifelse(Session %in% district[[1]], "Zip1", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(2),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip2 = ifelse(Session %in% district[[1]], "Zip2", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(3),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip3 = ifelse(Session %in% district[[1]], "Zip3", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(4),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip4 = ifelse(Session %in% district[[1]], "Zip4", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(5),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip5 = ifelse(Session %in% district[[1]], "Zip5", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(6),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip6 = ifelse(Session %in% district[[1]], "Zip6", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(7),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip7 = ifelse(Session %in% district[[1]], "Zi73", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(8),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip8 = ifelse(Session %in% district[[1]], "Zip8", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(9),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip9 = ifelse(Session %in% district[[1]], "Zip9", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(10),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip10 = ifelse(Session %in% district[[1]], "Zip10", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(11),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip11 = ifelse(Session %in% district[[1]], "Zip11", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(12),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip12 = ifelse(Session %in% district[[1]], "Zip12", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(13),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip13 = ifelse(Session %in% district[[1]], "Zip13", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(14),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip14 = ifelse(Session %in% district[[1]], "Zip14", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(15),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip15 = ifelse(Session %in% district[[1]], "Zip15", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(16),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip16 = ifelse(Session %in% district[[1]], "Zip16", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(17),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip17 = ifelse(Session %in% district[[1]], "Zip17", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(18),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip18 = ifelse(Session %in% district[[1]], "Zip18", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(19),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip19 = ifelse(Session %in% district[[1]], "Zip19", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(20),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip20 = ifelse(Session %in% district[[1]], "Zip20", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(21),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip21 = ifelse(Session %in% district[[1]], "Zip21", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(22),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip22 = ifelse(Session %in% district[[1]], "Zip22", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(23),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip23 = ifelse(Session %in% district[[1]], "Zip23", "NO"))
-# 
-# A <- studentData.training %>%
-#   select(50:73) %>%
-#   pivot_longer(cols = 2:23, names_to = "Zip") %>%
-#   filter(!value == "NO") %>%
-#   select(1:3)
-# 
-# studentData.training <- st_join(studentData.training, A, by = "Session") %>%
-#   select(-c("Zip1","Zip2","Zip3","Zip4","Zip5","Zip6","Zip7","Zip8","Zip9","Zip10",
-#             "Zip11","Zip12","Zip13","Zip14","Zip15","Zip16","Zip17","Zip18","Zip19","Zip20",
-#             "Zip21","Zip22","Zip23","Session.x"))
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf) +
@@ -442,7 +275,7 @@ z <- st_intersection(studentData.training, acsTractsCol.2019.sf %>%
 
 Website available for data https://open-data.bouldercolorado.gov/ 
 
-```{r colorado_data}
+```{r colorado_data, message=TRUE, warning=FALSE}
 
 # # Locations of Rental Properties (by license)
 # ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
@@ -530,14 +363,6 @@ ggplot() +
           fill = "transparent") +
   labs(title = "library")
 
-allTracts.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
-          multipleRingBuffer(Buffer_Library, 5280, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
-            by=c("GEOID"="GEOID")) %>%
-  st_sf()
-
 
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
 # Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
@@ -591,14 +416,13 @@ ggplot() +
           fill = "transparent") +
   labs(title = "Grocery_Stores")
 
-Grocery.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
-          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
-            by=c("GEOID"="GEOID")) %>%
-  st_sf()
-
+#Grocery.rings <-
+#  st_join(st_centroid(dplyr::select(studentData.training, address)), 
+#          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
+#  st_drop_geometry() %>%
+#  left_join(dplyr::select(studentData.training, address), 
+#            by=c("address"="address")) %>%
+#  st_sf()
 
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
@@ -643,7 +467,7 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
 
 #Nearest Neighbors
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 ## grovery Nearest Neighbor
 st_c <- st_coordinates
 
@@ -677,57 +501,12 @@ studentData.training <- studentData.training %>%
          Museums_nn5 = nn_function(st_c(studentData.training), st_c(Museums), 5))
 ```
 
-```{r Centroid, message=FALSE, warning=FALSE}
-# Creating centroids
-
-#Rather than pick a half mile (2640 feet) I chose to use a 2 mile radius. Since I am working with suburbs, homes are further away from the regional lines. 
-
-# Buffers for stations
-Buffers <- 
-  rbind(
-    st_buffer(NJtransit, 10560) %>%
-      mutate(Legend = "Buffer") %>%
-      dplyr::select(Legend),
-    st_union(st_buffer(NJtransit, 10560)) %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer"))
-
-
-
-
-Linebuffer <- rbind(
-    st_buffer(NjTransit_Lines, 10560) %>%
-      mutate(Legend = "Buffer") %>%
-      dplyr::select(Legend),
-    st_union(st_buffer(NjTransit_Lines, 10560)) %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer"))
-
-
-ggplot() +
-  geom_sf(data=Buffers) +
-  geom_sf(data = Linebuffer) +
-  geom_sf(data=NJtransit, 
-          aes(colour = STATION), 
-          show.legend = "point", size= 2) +
-  geom_sf(data = NjTransit_Lines) +
-  facet_wrap(~Legend) + 
-  mapTheme()
-
-
-selectCentroids <-
-  st_centroid(acsTractsNJ.2019.sf)[Buffers,] %>%
-    st_drop_geometry() %>%
-    left_join(dplyr::select(acsTractsNJ.2019.sf, GEOID)) %>%
-    st_sf() %>%
-  mutate(Select_type = "Select by Centroid")
-```
-
 
 # Exploratory analysis
 
 Visualize price per sq foot
 ```{r}
+# THIS IS WHERE WE CAN DIVERGE FROM TRAINING AND CHALLENGE DATASETS #
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
@@ -753,6 +532,219 @@ st_drop_geometry(studentData.training) %>%
      plotTheme()
 ```
 
+
+# Present 4 home price correlation scatterplots that you think are of interest. I’m going to look for interesting open data that you’ve integrated with the home sale observations
+
+```{r NN_Grocery_plots, echo=FALSE, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("grocery")) %>%
+  pivot_longer(cols = starts_with("grocery"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r NN_Restaurant_plots, echo=FALSE, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("restaurant")) %>%
+  pivot_longer(cols = starts_with("restaurant"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Restaurant and Price") +
+    plotTheme()
+```
+
+```{r NN_Education_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("Education")) %>%
+  pivot_longer(cols = starts_with("Education"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r NN_Museums_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("Museums")) %>%
+  pivot_longer(cols = starts_with("Museums"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r ComparingNN1_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r ComparingNN2_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN3_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN4_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN5_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r NN_Indicator, echo=FALSE, message=FALSE, warning=FALSE}
+bind_rows(
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(price, nn) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    labs(title = "Nearest Neighbor Average and Price") +
+  facet_wrap(~nn) +
+    plotTheme()
+```
+
 Price as a function of categorical variables
 ```{r, fig.height=15, fig.width=10}
 st_drop_geometry(studentData.training) %>% 
@@ -775,6 +767,7 @@ numericVars <-
   na.omit()
   
 
+
 ggcorrplot(
   round(cor(numericVars), 1), 
   p.mat = cor_pmat(numericVars),
@@ -782,11 +775,22 @@ ggcorrplot(
   type="lower",
   insig = "blank") +  
     labs(title = "Correlation across numeric variables")
+
+#trying to find variables that have a correlation value between 0.5 and -0.5
+res <- as.data.frame(cor(numericVars)) %>%
+rownames_to_column()
+
+#filter across multiple columns https://stackoverflow.com/questions/43938863/dplyr-filter-with-condition-on-multiple-columns 
+
+res %>%
+  select(!bldgClass) %>%
+  slice(-6)
 ```
 
 # OLS
 ```{r}
 cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
+
 
 livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
 
@@ -794,12 +798,13 @@ summary(livingReg)
 ```
 
 Multiple regression
+
 ```{r}
 reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
-                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
-                                               nbrFullBaths, designCodeDscr, 
-                                               ConstCodeDscr, carStorageTypeDscr,
-                                               bsmtSF, AcDscr,  HeatingDscr))
+       dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
+        nbrFullBaths, designCodeDscr, 
+        ConstCodeDscr, carStorageTypeDscr,
+        bsmtSF, AcDscr,  HeatingDscr))
 summary(reg1)
 ```
 
@@ -820,8 +825,7 @@ reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>%
 ```
 
 
-```{r}
-
-```
 
 # Appendix
+
+
