@@ -755,11 +755,7 @@ rownames_to_column()
 
 res %>%
   select(!bldgClass) %>%
-  slice(-6) %>%
-  filter(
-    across(.cols = c(price,year),
-           .fns = unique)
-  )
+  slice(-6)
 ```
 
 # OLS
@@ -795,21 +791,5 @@ reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>%
                                                R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
                                                R_KITCH, R_AC, R_FPLACE,
                                                crimes.Buffer))
-```
-
-# Appendix
-
-Data I don't know what to do with. 
-
-```{r}
-#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform('ESRI:102286')
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = Addresses) +
-  labs(title = "Addresses")
 ```
 
