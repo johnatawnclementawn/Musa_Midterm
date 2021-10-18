@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf, stargazer)
 
 options(scipen = 999)
 options(scipen =  "sf")
@@ -90,7 +90,7 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 ```
 
-```{r, schoolDistricts}
+```{r message=FALSE, warning=FALSE}
 #Unified School District
 acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
         year = 2019,
@@ -124,7 +124,7 @@ ggplot() +
 ```
 
 
-```{r Zip_codes, eval=FALSE, include=FALSE}
+```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
 # ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
 
 
@@ -327,14 +327,6 @@ ggplot() +
           fill = "transparent") +
   labs(title = "library")
 
-allTracts.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
-          multipleRingBuffer(Buffer_Library, 5280, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
-            by=c("GEOID"="GEOID")) %>%
-  st_sf()
-
 
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
 Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
@@ -388,13 +380,13 @@ ggplot() +
           fill = "transparent") +
   labs(title = "Grocery_Stores")
 
-Grocery.rings <-
-  st_join(st_centroid(dplyr::select(studentData.training, address)), 
-          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(studentData.training, address), 
-            by=c("address"="address")) %>%
-  st_sf()
+#Grocery.rings <-
+#  st_join(st_centroid(dplyr::select(studentData.training, address)), 
+#          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
+#  st_drop_geometry() %>%
+#  left_join(dplyr::select(studentData.training, address), 
+#            by=c("address"="address")) %>%
+#  st_sf()
 
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
@@ -439,7 +431,7 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
 
 #Nearest Neighbors
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 ## grovery Nearest Neighbor
 st_c <- st_coordinates
 
@@ -473,58 +465,13 @@ studentData.training <- studentData.training %>%
          Museums_nn5 = nn_function(st_c(studentData.training), st_c(Museums), 5))
 ```
 
-```{r Centroid, message=FALSE, warning=FALSE}
-# Creating centroids
-
-#Rather than pick a half mile (2640 feet) I chose to use a 2 mile radius. Since I am working with suburbs, homes are further away from the regional lines. 
-
-# Buffers for stations
-Buffers <- 
-  rbind(
-    st_buffer(NJtransit, 10560) %>%
-      mutate(Legend = "Buffer") %>%
-      dplyr::select(Legend),
-    st_union(st_buffer(NJtransit, 10560)) %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer"))
-
-
-
-
-Linebuffer <- rbind(
-    st_buffer(NjTransit_Lines, 10560) %>%
-      mutate(Legend = "Buffer") %>%
-      dplyr::select(Legend),
-    st_union(st_buffer(NjTransit_Lines, 10560)) %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer"))
-
-
-ggplot() +
-  geom_sf(data=Buffers) +
-  geom_sf(data = Linebuffer) +
-  geom_sf(data=NJtransit, 
-          aes(colour = STATION), 
-          show.legend = "point", size= 2) +
-  geom_sf(data = NjTransit_Lines) +
-  facet_wrap(~Legend) + 
-  mapTheme()
-
-
-selectCentroids <-
-  st_centroid(acsTractsNJ.2019.sf)[Buffers,] %>%
-    st_drop_geometry() %>%
-    left_join(dplyr::select(acsTractsNJ.2019.sf, GEOID)) %>%
-    st_sf() %>%
-  mutate(Select_type = "Select by Centroid")
-```
 
 # Exploratory analysis
 
 Visualize price per sq foot
 ```{r}
 
-BCC_houses <- studentData %>%
+BCC_houses <- studentData.training %>%
   mutate(pricePerSF = price/TotalFinishedSF,
          age = 2021 - builtYear,
          iprvmntAge = EffectiveYear - builtYear) %>%
@@ -559,6 +506,219 @@ st_drop_geometry(BCC_houses) %>%
      plotTheme()
 ```
 
+
+# Present 4 home price correlation scatterplots that you think are of interest. I’m going to look for interesting open data that you’ve integrated with the home sale observations
+
+```{r NN_Grocery_plots, echo=FALSE, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("grocery")) %>%
+  pivot_longer(cols = starts_with("grocery"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r NN_Restaurant_plots, echo=FALSE, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("restaurant")) %>%
+  pivot_longer(cols = starts_with("restaurant"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Restaurant and Price") +
+    plotTheme()
+```
+
+```{r NN_Education_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("Education")) %>%
+  pivot_longer(cols = starts_with("Education"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r NN_Museums_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("Museums")) %>%
+  pivot_longer(cols = starts_with("Museums"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r ComparingNN1_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r ComparingNN2_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN3_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN4_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN5_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r NN_Indicator, echo=FALSE, message=FALSE, warning=FALSE}
+bind_rows(
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(price, nn) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    labs(title = "Nearest Neighbor Average and Price") +
+  facet_wrap(~nn) +
+    plotTheme()
+```
+
 Price as a function of categorical variables
 ```{r, fig.height=15, fig.width=10}
 st_drop_geometry(BCC_houses) %>% 
@@ -578,105 +738,6 @@ Correlation matrix
 numericVars <- 
   select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
   select(-MUSA_ID, )
-
-ggcorrplot(
-  round(cor(numericVars), 1), 
-  p.mat = cor_pmat(numericVars),
-  colors = c("#25CB10", "white", "#FA7800"),
-  type="lower",
-  insig = "blank") +  
-    labs(title = "Correlation across numeric variables")
-```
-
-# OLS
-```{r}
-cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
-
-livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
-
-summary(livingReg)
-```
-
-Multiple regression
-```{r}
-reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
-                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
-                                               nbrFullBaths, designCodeDscr, 
-                                               ConstCodeDscr, carStorageTypeDscr,
-                                               bsmtSF, AcDscr,  HeatingDscr))
-summary(reg1)
-```
-
-Testing accuracy using MAE
-```{r}
-inTrain <- createDataPartition(
-              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
-              p = .60, list = FALSE)
-boston.training <- boston.sf[inTrain,] 
-boston.test <- boston.sf[-inTrain,]  
-
-reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>% 
-                                    dplyr::select(SalePrice, LivingArea, Style, 
-                                               GROSS_AREA, NUM_FLOORS.cat,
-                                               R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
-                                               R_KITCH, R_AC, R_FPLACE,
-                                               crimes.Buffer))
-```
-
-## JS edits
-Visualize price per sq foot
-```{r}
-BCC_houses <- studentData.training %>%
-  mutate(pricePerSF = price/TotalFinishedSF,
-         age = 2021 - builtYear,
-         iprvmntAge = EffectiveYear - builtYear) %>%
-    select(-Stories, -UnitCount, -Ac, -Roof_Cover, -ExtWallSec)
-
-ggplot() +
-  geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
-  geom_sf(data = BCC_houses, aes(colour = q5(pricePerSF)), 
-          show.legend = "point", size = .75) +
-  scale_colour_manual(values = palette5,
-                   labels=qBr(BCC_houses,"pricePerSF"),
-                   name="Quintile\nBreaks") +
-  labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
-  mapTheme()
-```
-
-Visualize price as a function of various continuous variables
-```{r}
-st_drop_geometry(BCC_houses) %>% 
-  dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
-  filter(price <= 5000000, age < 500) %>%
-  gather(Variable, Value, -price) %>% 
-   ggplot(aes(Value, price)) +
-     geom_point(size = .5) + geom_smooth(method = "lm", se=F, colour = "#FA7800") +
-     facet_wrap(~Variable, ncol = 3, scales = "free") +
-     labs(title = "Price as a function of continuous variables") +
-     plotTheme()
-```
-
-Price as a function of categorical variables
-```{r, fig.height=15, fig.width=10}
-st_drop_geometry(BCC_houses) %>% 
-  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
-  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
-  filter(price <= 5000000) %>%
-  gather(Variable, Value, -price) %>% 
-   ggplot(aes(Value, price)) +
-     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
-     facet_wrap(~Variable, ncol = 1, scales = "free") +
-     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
-     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-Correlation matrix
-```{r}
-numericVars <- 
-  st_drop_geometry(BCC_houses) %>% 
-  select(where(is.numeric)) %>%
-  filter(toPredict == 0) %>% na.omit()
-  
 
 ggcorrplot(
   round(cor(numericVars), 1), 
