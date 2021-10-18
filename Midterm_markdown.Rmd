@@ -25,8 +25,7 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
-studentData.training <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
-  filter(toPredict == 0) %>% 
+studentData <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
   mutate(pricePerSF = price/TotalFinishedSF,
          age = 2021 - builtYear,
          iprvmntAge = EffectiveYear - builtYear) %>%
@@ -36,6 +35,12 @@ studentData.training <- st_read("studentData.geojson", crs = CO_statePlaneCentra
   dplyr::select(-Stories, -UnitCount, -Ac, -Heating, -ExtWallPrim, -ExtWallSec, -IntWall, -Roof_Cover, -status_cd) %>%
   st_transform(CO_statePlaneCentral) 
 
+
+studentData.training <- studentData %>%
+    filter(toPredict == 0)
+
+studentData.challenge <- studentData %>%
+    filter(toPredict == 1)
 
 # Check to see we aren't loosing records
 # testTrain <- studentData.training %>% na.omit()
@@ -144,6 +149,7 @@ studentData.training <- studentData.training %>%
 studentData.training <- studentData.training %>%
   mutate(withinCity = replace_na(withinCity,"0"))
 
+# Change 
 studentData.training <- studentData.training %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
 ```
