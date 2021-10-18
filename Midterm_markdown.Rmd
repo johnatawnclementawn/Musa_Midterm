@@ -5,10 +5,13 @@ date: "9/29/2021"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
+
 pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
+library(ggcorrplot)
+
 
 options(scipen = 999)
 options(scipen =  "sf")
@@ -16,20 +19,36 @@ options(scipen =  "sf")
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
 palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
-
-
 ```
 
 ## Pulling Data
 
-```{r message=FALSE, warning=FALSE}
+
+```{r housedata, message=FALSE, warning=FALSE, include=FALSE}
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
-studentData.training <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
-  filter(toPredict == 0) %>% 
-  st_transform(CO_statePlaneCentral)
+studentData <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
+  mutate(pricePerSF = price/TotalFinishedSF,
+         age = 2021 - builtYear,
+         iprvmntAge = EffectiveYear - builtYear) %>%
+  # Change NA address values to something R won't get rid of when we do na.omit()
+  mutate(address=replace_na(address,"No address given")) %>%
+  # Remove numeric categorical vars - there are already descriptions for these values in the df
+  dplyr::select(-Stories, -UnitCount, -Ac, -Heating, -ExtWallPrim, -ExtWallSec, -IntWall, -Roof_Cover, -status_cd) %>%
+  st_transform(CO_statePlaneCentral) 
 
+
+studentData.training <- studentData %>%
+    filter(toPredict == 0)
+
+studentData.challenge <- studentData %>%
+    filter(toPredict == 1)
+
+# Check to see we aren't loosing records
+# testTrain <- studentData.training %>% na.omit()
+# addition <- rbind(studentData.training,testTrain)
+# difference <- addition[! duplicated(addition, fromLast = TRUE) & seq(nrow(addition)) <= nrow(studentData.training), ]
 ```
 
 
@@ -38,7 +57,7 @@ studentData.training <- st_read("studentData.geojson", crs = CO_statePlaneCentra
 Look for zip codes not census tracts, because who purchases by census tracts?
 
 
-```{r tidycensus_2019, echo=FALSE}
+```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE}
 
 #variables on frequency of Race
 Variables <- load_variables(2019,
@@ -90,7 +109,7 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 ```
 
-```{r, schoolDistricts}
+```{r message=FALSE, warning=FALSE}
 #Unified School District
 acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
         year = 2019,
@@ -104,6 +123,7 @@ acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)"
 school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsSchoolDistrctssCol.2019.sf)
 acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
   slice(school_districts[[1]])
+
 
 # Assign a school district to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
@@ -121,9 +141,29 @@ ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent")
 ```
+```{r cityLimits}
+boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
+  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
+  mutate(inCity = 1)
+
+# Determine if a house is within the city or not - used for cases in which only city data is available
+studentData.training <- studentData.training %>%
+  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
+
+studentData.training <- studentData.training %>%
+  mutate(withinCity = replace_na(withinCity,"0"))
+
+# Change 
+studentData.training <- studentData.training %>%
+  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+```
 
 
-```{r, zipCodes}
+
+```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
+# ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
+
+
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         year = 2019,
@@ -132,6 +172,7 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         output = "wide") %>% 
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
 
 zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
@@ -145,181 +186,6 @@ studentData.training <- studentData.training %>%
     #,
     #zipcode = if_else(is.na(Zip), "", acsSchoolDistrctssCol.2019.sf$NAME[Zip])
   )
-
-
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(1),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Session = row_number(),
-#                                    Zip1 = ifelse(Session %in% district[[1]], "Zip1", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(2),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip2 = ifelse(Session %in% district[[1]], "Zip2", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(3),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip3 = ifelse(Session %in% district[[1]], "Zip3", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(4),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip4 = ifelse(Session %in% district[[1]], "Zip4", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(5),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip5 = ifelse(Session %in% district[[1]], "Zip5", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(6),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip6 = ifelse(Session %in% district[[1]], "Zip6", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(7),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip7 = ifelse(Session %in% district[[1]], "Zi73", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(8),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip8 = ifelse(Session %in% district[[1]], "Zip8", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(9),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip9 = ifelse(Session %in% district[[1]], "Zip9", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(10),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip10 = ifelse(Session %in% district[[1]], "Zip10", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(11),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip11 = ifelse(Session %in% district[[1]], "Zip11", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(12),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip12 = ifelse(Session %in% district[[1]], "Zip12", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(13),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip13 = ifelse(Session %in% district[[1]], "Zip13", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(14),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip14 = ifelse(Session %in% district[[1]], "Zip14", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(15),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip15 = ifelse(Session %in% district[[1]], "Zip15", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(16),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip16 = ifelse(Session %in% district[[1]], "Zip16", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(17),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip17 = ifelse(Session %in% district[[1]], "Zip17", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(18),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip18 = ifelse(Session %in% district[[1]], "Zip18", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(19),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip19 = ifelse(Session %in% district[[1]], "Zip19", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(20),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip20 = ifelse(Session %in% district[[1]], "Zip20", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(21),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip21 = ifelse(Session %in% district[[1]], "Zip21", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(22),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                             mutate(Zip22 = ifelse(Session %in% district[[1]], "Zip22", "NO"))
-# 
-# district <- st_intersects(acsZipsCol.2019.sf %>%
-#   slice(23),
-#   studentData.training)
-# 
-# studentData.training <- studentData.training %>%
-#                            mutate(Zip23 = ifelse(Session %in% district[[1]], "Zip23", "NO"))
-# 
-# A <- studentData.training %>%
-#   select(50:73) %>%
-#   pivot_longer(cols = 2:23, names_to = "Zip") %>%
-#   filter(!value == "NO") %>%
-#   select(1:3)
-# 
-# studentData.training <- st_join(studentData.training, A, by = "Session") %>%
-#   select(-c("Zip1","Zip2","Zip3","Zip4","Zip5","Zip6","Zip7","Zip8","Zip9","Zip10",
-#             "Zip11","Zip12","Zip13","Zip14","Zip15","Zip16","Zip17","Zip18","Zip19","Zip20",
-#             "Zip21","Zip22","Zip23","Session.x"))
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf) +
@@ -358,7 +224,7 @@ Variables <- load_variables(2018,
   slice(1:10)
 
 #variable median age, men and women not by race
-A <- load_variables(2018,
+A18 <- load_variables(2018,
                     "acs5",
                     cache = TRUE) %>%
   mutate(Merge_name = paste(name,"E", sep ="")) %>%
@@ -366,7 +232,7 @@ A <- load_variables(2018,
   slice(1:3)
 
 #Median Household Income
-B <- load_variables(2018,
+B18 <- load_variables(2018,
                     "acs5",
                     cache = TRUE) %>%
   mutate(Merge_name = paste(name,"E", sep ="")) %>%
@@ -374,14 +240,14 @@ B <- load_variables(2018,
   slice(1)
 
 # Cost of living
-C <- load_variables(2018,
+C18 <- load_variables(2018,
                     "acs5",
                     cache = TRUE) %>%
   mutate(Merge_name = paste(name,"E", sep ="")) %>%
   filter(grepl("COST", concept)) %>%
   slice(1:19)
 
-Variables <- bind_rows(Variables, A, B, C)
+Variables <- bind_rows(Variables, A18, B18, C18)
 
 acsTractsCol.2018.sf <- get_acs(geography = "tract",
         year = 2018,
@@ -409,70 +275,70 @@ z <- st_intersection(studentData.training, acsTractsCol.2019.sf %>%
 
 Website available for data https://open-data.bouldercolorado.gov/ 
 
-```{r colorado_data}
+```{r colorado_data, message=TRUE, warning=FALSE}
 
-# Locations of Rental Properties (by license)
-## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
-rentalHomes <- st_read("https://opendata.arcgis.com/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = st_centroid(rentalHomes)) +
-  labs(title = "Rental Homes")
-
-
-# Locations of Accessory Dwelling Units
-## https://open-data.bouldercolorado.gov/datasets/669935e6d13c406497cd9cbbbd7951b2_0/explore?location=40.023716%2C-105.253583%2C11.91
-## For explanation on what ADU's are: https://planning.org/knowledgebase/accessorydwellings/ 
-adus <- st_read("https://opendata.arcgis.com/datasets/669935e6d13c406497cd9cbbbd7951b2_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = adus) +
-  labs(title = "Accessory Dwelling Units")
-
-
-# Locations of 100 Year floodplain within Boulder County
-# Data originally for the whole state, subsetted to Boulder County via st_intersect
-## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
-## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
-
-
-# # Process for creating Boulder County Flood Plains shp
-# COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+# # Locations of Rental Properties (by license)
+# ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
+# rentalHomes <- st_read("https://opendata.arcgis.com/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0.geojson") %>%
 #   st_transform(CO_statePlaneCentral)
 # 
-# boulderCo_flood <- COState_flood %>%
-#   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
-#   st_sf()
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = st_centroid(rentalHomes)) +
+#   labs(title = "Rental Homes")
 # 
-# # Create Geopackage for ease of transport - only one file
-# st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
-
-boulderCo_flood_shp <- st_read("boulderCo_100yrFloodZones.gpkg")
-
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = boulderCo_flood_shp)
-
-
-# Locations of Zoning districts
-## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
-## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
-zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = zoning) +
-  labs(title = "Zoning Districts")
+# 
+# # Locations of Accessory Dwelling Units
+# ## https://open-data.bouldercolorado.gov/datasets/669935e6d13c406497cd9cbbbd7951b2_0/explore?location=40.023716%2C-105.253583%2C11.91
+# ## For explanation on what ADU's are: https://planning.org/knowledgebase/accessorydwellings/ 
+# adus <- st_read("https://opendata.arcgis.com/datasets/669935e6d13c406497cd9cbbbd7951b2_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = adus) +
+#   labs(title = "Accessory Dwelling Units")
+# 
+# 
+# # Locations of 100 Year floodplain within Boulder County
+# # Data originally for the whole state, subsetted to Boulder County via st_intersect
+# ## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
+# ## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
+# 
+# 
+# # # Process for creating Boulder County Flood Plains shp
+# # COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+# #   st_transform(CO_statePlaneCentral)
+# # 
+# # boulderCo_flood <- COState_flood %>%
+# #   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
+# #   st_sf()
+# # 
+# # # Create Geopackage for ease of transport - only one file
+# # st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
+# 
+# boulderCo_flood_shp <- st_read("boulderCo_100yrFloodZones.gpkg")
+# 
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = boulderCo_flood_shp)
+# 
+# 
+# # Locations of Zoning districts
+# ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
+# ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
+# zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = zoning) +
+#   labs(title = "Zoning Districts")
 
 
 # Locations of 19 libraries 
@@ -497,24 +363,16 @@ ggplot() +
           fill = "transparent") +
   labs(title = "library")
 
-allTracts.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
-          multipleRingBuffer(Buffer_Library, 5280, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
-            by=c("GEOID"="GEOID")) %>%
-  st_sf()
-
 
 #addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = Addresses) +
-  labs(title = "Addresses")
+# Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = Addresses) +
+#   labs(title = "Addresses")
 
 # Properties managed by parks and recreation polygons ## https://open-data.bouldercolorado.gov/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1/explore?location=40.026750%2C-105.234200%2C12.05 
 Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1.geojson")
@@ -558,14 +416,13 @@ ggplot() +
           fill = "transparent") +
   labs(title = "Grocery_Stores")
 
-Grocery.rings <-
-  st_join(st_centroid(dplyr::select(acsTractsCol.2019.sf, GEOID)), 
-          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
-  st_drop_geometry() %>%
-  left_join(dplyr::select(acsTractsCol.2019.sf, GEOID), 
-            by=c("GEOID"="GEOID")) %>%
-  st_sf()
-
+#Grocery.rings <-
+#  st_join(st_centroid(dplyr::select(studentData.training, address)), 
+#          multipleRingBuffer(Buffer_Grocery, 5280, 2640)) %>%
+#  st_drop_geometry() %>%
+#  left_join(dplyr::select(studentData.training, address), 
+#            by=c("address"="address")) %>%
+#  st_sf()
 
 #Restaurants from DataAxle
 Restaurants <- bind_rows(read.csv("DataAxle_Restaurants_1.csv"), read.csv("DataAxle_Restaurants_2.csv")) %>%
@@ -610,7 +467,7 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
 
 #Nearest Neighbors
 
-```{r}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 ## grovery Nearest Neighbor
 st_c <- st_coordinates
 
@@ -644,84 +501,19 @@ studentData.training <- studentData.training %>%
          Museums_nn5 = nn_function(st_c(studentData.training), st_c(Museums), 5))
 ```
 
-```{r Centroid, message=FALSE, warning=FALSE}
-# Creating centroids
-
-#Rather than pick a half mile (2640 feet) I chose to use a 2 mile radius. Since I am working with suburbs, homes are further away from the regional lines. 
-
-# Buffers for stations
-Buffers <- 
-  rbind(
-    st_buffer(NJtransit, 10560) %>%
-      mutate(Legend = "Buffer") %>%
-      dplyr::select(Legend),
-    st_union(st_buffer(NJtransit, 10560)) %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer"))
-
-
-
-
-Linebuffer <- rbind(
-    st_buffer(NjTransit_Lines, 10560) %>%
-      mutate(Legend = "Buffer") %>%
-      dplyr::select(Legend),
-    st_union(st_buffer(NjTransit_Lines, 10560)) %>%
-      st_sf() %>%
-      mutate(Legend = "Unioned Buffer"))
-
-
-ggplot() +
-  geom_sf(data=Buffers) +
-  geom_sf(data = Linebuffer) +
-  geom_sf(data=NJtransit, 
-          aes(colour = STATION), 
-          show.legend = "point", size= 2) +
-  geom_sf(data = NjTransit_Lines) +
-  facet_wrap(~Legend) + 
-  mapTheme()
-
-
-selectCentroids <-
-  st_centroid(acsTractsNJ.2019.sf)[Buffers,] %>%
-    st_drop_geometry() %>%
-    left_join(dplyr::select(acsTractsNJ.2019.sf, GEOID)) %>%
-    st_sf() %>%
-  mutate(Select_type = "Select by Centroid")
-```
-
-# Appendix
-
-Data I don't know what to do with. 
-
-```{r}
-#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-  st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = Addresses) +
-  labs(title = "Addresses")
-```
 
 # Exploratory analysis
 
 Visualize price per sq foot
 ```{r}
-BCC_houses <- studentData.training %>%
-  mutate(pricePerSF = price/TotalFinishedSF,
-         age = 2021 - builtYear,
-         iprvmntAge = EffectiveYear - builtYear) %>%
-    select(-Stories, -UnitCount, -Ac, -Roof_Cover, -ExtWallSec)
+# THIS IS WHERE WE CAN DIVERGE FROM TRAINING AND CHALLENGE DATASETS #
 
 ggplot() +
-  geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
-  geom_sf(data = BCC_houses, aes(colour = q5(pricePerSF)), 
+  geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
+  geom_sf(data = studentData.training, aes(colour = q5(pricePerSF)), 
           show.legend = "point", size = .75) +
   scale_colour_manual(values = palette5,
-                   labels=qBr(BCC_houses,"pricePerSF"),
+                   labels=qBr(studentData.training,"pricePerSF"),
                    name="Quintile\nBreaks") +
   labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
   mapTheme()
@@ -729,7 +521,7 @@ ggplot() +
 
 Visualize price as a function of various continuous variables
 ```{r}
-st_drop_geometry(BCC_houses) %>% 
+st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
   filter(price <= 5000000, age < 500) %>%
   gather(Variable, Value, -price) %>% 
@@ -740,9 +532,222 @@ st_drop_geometry(BCC_houses) %>%
      plotTheme()
 ```
 
+
+# Present 4 home price correlation scatterplots that you think are of interest. I’m going to look for interesting open data that you’ve integrated with the home sale observations
+
+```{r NN_Grocery_plots, echo=FALSE, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("grocery")) %>%
+  pivot_longer(cols = starts_with("grocery"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r NN_Restaurant_plots, echo=FALSE, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("restaurant")) %>%
+  pivot_longer(cols = starts_with("restaurant"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Restaurant and Price") +
+    plotTheme()
+```
+
+```{r NN_Education_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("Education")) %>%
+  pivot_longer(cols = starts_with("Education"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r NN_Museums_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID,starts_with("Museums")) %>%
+  pivot_longer(cols = starts_with("Museums"), 
+               names_to = "Nearest_Neighbor",
+               values_to = "Distance") %>%
+  group_by(Nearest_Neighbor, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Nearest_Neighbor) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r ComparingNN1_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+
+```{r ComparingNN2_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN3_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN4_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r ComparingNN5_plots, echo=FALSE, message=FALSE, warning=FALSE}
+
+st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance") %>%
+  group_by(Amenities, price) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    facet_wrap(~Amenities) +
+    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    plotTheme()
+```
+
+```{r NN_Indicator, echo=FALSE, message=FALSE, warning=FALSE}
+bind_rows(
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(price, nn) %>%
+  summarize(mean_distance = mean(Distance)) %>%
+  ggplot(aes(mean_distance,price)) +
+    geom_point(size = .5) +
+    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
+    labs(title = "Nearest Neighbor Average and Price") +
+  facet_wrap(~nn) +
+    plotTheme()
+```
+
 Price as a function of categorical variables
 ```{r, fig.height=15, fig.width=10}
-st_drop_geometry(BCC_houses) %>% 
+st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
   # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
   filter(price <= 5000000) %>%
@@ -757,10 +762,11 @@ st_drop_geometry(BCC_houses) %>%
 Correlation matrix
 ```{r}
 numericVars <- 
-  st_drop_geometry(BCC_houses) %>% 
+  st_drop_geometry(studentData.training) %>% 
   select(where(is.numeric)) %>%
-  filter(toPredict == 0) %>% na.omit()
+  na.omit()
   
+
 
 ggcorrplot(
   round(cor(numericVars), 1), 
@@ -769,31 +775,43 @@ ggcorrplot(
   type="lower",
   insig = "blank") +  
     labs(title = "Correlation across numeric variables")
+
+#trying to find variables that have a correlation value between 0.5 and -0.5
+res <- as.data.frame(cor(numericVars)) %>%
+rownames_to_column()
+
+#filter across multiple columns https://stackoverflow.com/questions/43938863/dplyr-filter-with-condition-on-multiple-columns 
+
+res %>%
+  select(!bldgClass) %>%
+  slice(-6)
 ```
 
 # OLS
 ```{r}
-cor.test(BCC_houses$TotalFinishedSF, BCC_houses$price, method = "pearson")
+cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
 
-livingReg <- lm(price ~ TotalFinishedSF, data = BCC_houses)
+
+livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
 
 summary(livingReg)
 ```
 
 Multiple regression
+
 ```{r}
-reg1 <- lm(price ~ ., data = st_drop_geometry(BCC_houses) %>% 
-                                 dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
-                                               nbrFullBaths, designCodeDscr, 
-                                               ConstCodeDscr, carStorageTypeDscr,
-                                               bsmtSF, AcDscr,  HeatingDscr))
+reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
+       dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
+        nbrFullBaths, designCodeDscr, 
+        ConstCodeDscr, carStorageTypeDscr,
+        bsmtSF, AcDscr,  HeatingDscr))
 summary(reg1)
 ```
 
 Testing accuracy using MAE
 ```{r}
 inTrain <- createDataPartition(
-              y = paste(BCC_houses$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
+              y = paste(studentData.training$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
               p = .60, list = FALSE)
 boston.training <- boston.sf[inTrain,] 
 boston.test <- boston.sf[-inTrain,]  
@@ -808,6 +826,6 @@ reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>%
 
 
 
-```{r}
+# Appendix
 
-```
+
