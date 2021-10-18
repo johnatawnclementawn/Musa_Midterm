@@ -9,7 +9,8 @@ Tasks to complete
       - [ ] Organize Grocery Data
       - [ ] Organize Education institution data  
 - [ ] Feature engineering
-      - [ ] Area analysis Zip Cde
+      - [X] Simplify Zip code and School district assignment 
+      - [ ] Area analysis Zip Code
       - [ ] Area analysis School District
 - [ ] Start the actual linear regression at some point
 - [X] Made the Readme

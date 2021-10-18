@@ -139,7 +139,7 @@ acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
 
 # Assign a zipcode to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
-zip_test <- studentData.training %>%
+studentData.training <- studentData.training %>%
   mutate(
     Zip = paste0("Zip",as.integer(st_intersects(geometry,acsZipsCol.2019.sf)))
     #,
@@ -710,11 +710,11 @@ ggplot() +
 
 Visualize price per sq foot
 ```{r}
-BCC_houses <- studentData %>%
+BCC_houses <- studentData.training %>%
   mutate(pricePerSF = price/TotalFinishedSF,
          age = 2021 - builtYear,
          iprvmntAge = EffectiveYear - builtYear) %>%
-    select(-Stories, -UnitCount)
+    select(-Stories, -UnitCount, -Ac, -Roof_Cover, -ExtWallSec)
 
 ggplot() +
   geom_sf(data = acsBGCol.2019.sf, fill = "grey40") +
@@ -757,8 +757,10 @@ st_drop_geometry(BCC_houses) %>%
 Correlation matrix
 ```{r}
 numericVars <- 
-  select_if(st_drop_geometry(BCC_houses), is.numeric) %>% filter(toPredict == 0) %>% na.omit() %>%
-  select(-MUSA_ID, )
+  st_drop_geometry(BCC_houses) %>% 
+  select(where(is.numeric)) %>%
+  filter(toPredict == 0) %>% na.omit()
+  
 
 ggcorrplot(
   round(cor(numericVars), 1), 
