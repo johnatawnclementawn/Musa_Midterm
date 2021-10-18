@@ -38,13 +38,6 @@ studentData <- st_read("studentData.geojson", crs = CO_statePlaneCentral) %>%
   dplyr::select(-Stories, -UnitCount, -Ac, -Heating, -ExtWallPrim, -ExtWallSec, -IntWall, -Roof_Cover, -status_cd) %>%
   st_transform(CO_statePlaneCentral) 
 
-
-studentData.training <- studentData %>%
-    filter(toPredict == 0)
-
-studentData.challenge <- studentData %>%
-    filter(toPredict == 1)
-
 # Check to see we aren't loosing records
 # testTrain <- studentData.training %>% na.omit()
 # addition <- rbind(studentData.training,testTrain)
@@ -141,6 +134,7 @@ ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent")
 ```
+
 ```{r cityLimits}
 boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
   st_transform(st_crs(acsTractsCol.2019.sf)) %>%
@@ -761,12 +755,56 @@ st_drop_geometry(studentData.training) %>%
 
 Correlation matrix
 ```{r}
+studentData.training <- studentData %>%
+    filter(toPredict == 0)
+
+studentData.challenge <- studentData %>%
+    filter(toPredict == 1)
+
+A <- bind_rows(
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(MUSA_ID) %>%
+  summarize(mean_distance = mean(Distance)) 
+
 numericVars <- 
   st_drop_geometry(studentData.training) %>% 
   select(where(is.numeric)) %>%
+    select(!matches("%nn%")) %>%
   na.omit()
-  
-
 
 ggcorrplot(
   round(cor(numericVars), 1), 
@@ -780,11 +818,21 @@ ggcorrplot(
 res <- as.data.frame(cor(numericVars)) %>%
 rownames_to_column()
 
-#filter across multiple columns https://stackoverflow.com/questions/43938863/dplyr-filter-with-condition-on-multiple-columns 
+#pivot longer and sort through list 
 
-res %>%
-  select(!bldgClass) %>%
-  slice(-6)
+A <- res %>%
+  select(!c("bldgClass","toPredict")) %>%
+  slice(-6) %>%
+  pivot_longer(2:48) %>%
+  filter(value >= 0.3 & value <0.5)
+
+B <- res %>%
+  select(!c("bldgClass","toPredict")) %>%
+  slice(-6) %>%
+  pivot_longer(2:48) %>%
+  filter(value >= -0.5 & value < -0.3)
+
+corlist <- bind_rows(A,B)
 ```
 
 # OLS
