@@ -1,6 +1,6 @@
 ---
 title: "Hedonic Home Price Prediction"
-author: "Jonathon Sun, Johnathan Clementi"
+author: "Jonathon Sun, Johnathan Clementi a.k.a. John^2"
 date: "9/29/2021"
 output: html_document
 ---
@@ -22,9 +22,13 @@ source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-L
 palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 ```
 
-## Pulling Data
+# Introduction
 
 
+# Data
+
+
+#### Home prices dataset
 ```{r housedata, message=FALSE, warning=FALSE, include=FALSE}
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
@@ -48,11 +52,7 @@ studentData$pricePerSF <- as.integer(studentData$pricePerSF)
 ```
 
 
-### Census 2019
-
-Look for zip codes not census tracts, because who purchases by census tracts?
-
-
+#### Census 2019
 ```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE}
 
 #variables on frequency of Race
@@ -91,7 +91,6 @@ C <- load_variables(2019,
 Variables <- bind_rows(Variables, A, B, C)
 
 # Pull census data using tidycensus
-
 # Read in census tracts
 
 acsTractsCol.2019.sf <- get_acs(geography = "tract",
@@ -103,92 +102,7 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
         output = "wide") %>% 
   st_transform(CO_statePlaneCentral)%>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
-```
 
-```{r message=FALSE, warning=FALSE}
-#Unified School District
-acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
-        year = 2019,
-        variables = Variables$name, 
-        state="Colorado",
-        geometry=T,
-        output = "wide") %>% 
-  st_transform(CO_statePlaneCentral) %>%
-  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
-
-school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsSchoolDistrctssCol.2019.sf)
-acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
-  slice(school_districts[[1]])
-
-
-# Assign a school district to each home
-# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
-studentData <- studentData %>%
-  mutate(
-    District = paste0("District",as.integer(st_intersects(geometry,acsSchoolDistrctssCol.2019.sf)))
-    #,
-    #schoolDist_name = if_else(is.na(District), "", acsSchoolDistrctssCol.2019.sf$NAME[District])
-  )
-
-
-ggplot() +
-  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
-          fill = "red") +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent")
-```
-
-```{r cityLimits}
-boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
-  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
-  mutate(inCity = 1)
-
-# Determine if a house is within the city or not - used for cases in which only city data is available
-studentData <- studentData %>%
-  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
-
-studentData <- studentData %>%
-  mutate(withinCity = replace_na(withinCity,"0"))
-
-# Change 
-studentData <- studentData %>%
-  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
-```
-
-
-
-```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
-# ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
-
-
-#Zip Code
-acsZipsCol.2019.sf <- get_acs(geography = "zcta",
-        year = 2019,
-        variables = Variables$name, 
-        geometry=T,
-        output = "wide") %>% 
-  st_transform(CO_statePlaneCentral) %>%
-  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
-
-acsZipsCol.2019.sf <- search_city('Boulder', 'CO') 
-
-
-zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
-acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
-  slice(zipcodes[[1]])
-
-# Assign a zipcode to each home
-# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
-studentData <- studentData %>%
-  mutate(
-    Zip = paste0("Zip",as.integer(st_intersects(geometry,acsZipsCol.2019.sf)))
-    #,
-    #zipcode = if_else(is.na(Zip), "", acsSchoolDistrctssCol.2019.sf$NAME[Zip])
-  )
-
-ggplot() +
-  geom_sf(data = acsZipsCol.2019.sf) +
-  labs(title = "Census Tracts, Boulder County, Colorado")
 
 # # Read in census Block groups
 # acsBGCol.2019.sf <- get_acs(geography = "block group",
@@ -205,12 +119,10 @@ ggplot() +
 #   geom_sf(data = acsBGCol.2019.sf)+
 #   labs(title = "Census Block Groups, Boulder County, Colorado")
 
-
 ```
 
-Census 2018
 
-CURRENTLY NOT RUNNING
+Census 2018 - already have 2019 data, here because we don't want to get rid of the code
 ```{r tidycensus_2018, eval=FALSE, include=FALSE}
 
 #variables on frequency of Race
@@ -263,17 +175,107 @@ ggplot() +
   geom_sf(data = acsTractsCol.2018.sf)
 ```
 
-# Fixed Effect Census tracts 
-
+#### Fixed Effect Census tracts 
 ```{r}
 Census_tracts <- unique(acsTractsCol.2019.sf$GEOID)
 z <- st_intersection(studentData, acsTractsCol.2019.sf %>%
                   filter(GEOID == Census_tracts[1]))
+```
+
+
+#### Boulder County School Districts
+```{r school_districts, message=FALSE, warning=FALSE}
+#Unified School District
+acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
+        year = 2019,
+        variables = Variables$name, 
+        state="Colorado",
+        geometry=T,
+        output = "wide") %>% 
+  st_transform(CO_statePlaneCentral) %>%
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
+school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsSchoolDistrctssCol.2019.sf)
+acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
+  slice(school_districts[[1]])
+
+
+# Assign a school district to each home
+# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
+studentData <- studentData %>%
+  mutate(
+    District = paste0("District",as.integer(st_intersects(geometry,acsSchoolDistrctssCol.2019.sf)))
+    #,
+    #schoolDist_name = if_else(is.na(District), "", acsSchoolDistrctssCol.2019.sf$NAME[District])
+  )
+
+
+ggplot() +
+  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
+          fill = "red") +
+  geom_sf(data = st_union(acsTractsCol.2019.sf),
+          fill = "transparent")
+```
+
+
+#### Boulder City Fixed Effect
+```{r city_Limits}
+boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
+  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
+  mutate(inCity = 1)
+
+# Determine if a house is within the city or not - used for cases in which only city data is available
+studentData <- studentData %>%
+  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
+
+studentData <- studentData %>%
+  mutate(withinCity = replace_na(withinCity,"0"))
+
+# Change 
+studentData <- studentData %>%
+  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+```
+
+
+#### Boulder County Zip codes
+```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
+# ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
+
+
+#Zip Code
+acsZipsCol.2019.sf <- get_acs(geography = "zcta",
+        year = 2019,
+        variables = Variables$name, 
+        geometry=T,
+        output = "wide") %>% 
+  st_transform(CO_statePlaneCentral) %>%
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+
+acsZipsCol.2019.sf <- search_city('Boulder', 'CO') 
+
+
+zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
+acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
+  slice(zipcodes[[1]])
+
+# Assign a zipcode to each home
+# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
+studentData <- studentData %>%
+  mutate(
+    Zip = paste0("Zip",as.integer(st_intersects(geometry,acsZipsCol.2019.sf)))
+    #,
+    #zipcode = if_else(is.na(Zip), "", acsSchoolDistrctssCol.2019.sf$NAME[Zip])
+  )
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf) +
+  labs(title = "Census Tracts, Boulder County, Colorado")
 
 ```
 
-Website available for data https://open-data.bouldercolorado.gov/ 
 
+
+Website available for data https://open-data.bouldercolorado.gov/ 
 ```{r colorado_data, message=TRUE, warning=FALSE}
 
 # # Locations of Rental Properties (by license)
@@ -391,7 +393,10 @@ ggplot() +
 
 ```
 
-#Buffers
+## Feature Engineering
+
+
+#### Buffers
 
 ```{r}
 # Grocery Stores from Data Axle
@@ -464,7 +469,7 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
 ```
 
 
-#Nearest Neighbors
+#### Nearest Neighbors
 
 ```{r message=FALSE, warning=FALSE, include=FALSE}
 ## grovery Nearest Neighbor
@@ -500,8 +505,9 @@ studentData <- studentData %>%
          Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
 ```
 
+# Methods
 
-# Exploratory analysis
+#### Exploratory analysis
 
 Visualize price per sq foot
 ```{r}
@@ -866,6 +872,7 @@ B <- res %>%
   filter(value >= -0.5 & value < -0.3)
 
 corlist <- bind_rows(A,B)
+
 corlist <- corlist %>%
   group_by(value) %>%
   arrange(desc(value))
@@ -880,14 +887,12 @@ corlist <- corlist %>%
 priceCor <- corlist %>%
   filter(rowname == "price")
 
-a <- corlist$rowname
-b <- corlist$name
-
-keep <- unique(append(a,b))
+keep <- priceCor$name
+keep <- append(keep, "price")
 
 ```
 
-# OLS
+#### OLS
 ```{r warning=FALSE}
 cor.test(studentData.training$mean_distance, studentData.training$price, method = "pearson")
 
@@ -898,7 +903,7 @@ livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
 summary(livingReg)
 ```
 
-Multiple regression
+### Multiple regression
 
 ```{r message=FALSE, warning=FALSE}
 studentData.training %>%
@@ -910,8 +915,8 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>%
 summary(reg1)
 ```
 
-Testing accuracy using MAE
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+### Testing accuracy using MAE & MAPE
+```{r message=FALSE, warning=FALSE}
 set.seed(5)
 
 inTrain <- createDataPartition(
@@ -934,14 +939,50 @@ test <- test %>%
          SalePrice.AbsError = abs(SalePrice.Predict - price),
          SalePrice.APE = (abs(SalePrice.Predict - price)) / SalePrice.Predict)
 
+mae <- mean(test$SalePrice.AbsError, na.rm=TRUE)
+print(mae)
+mape <- mean(test$SalePrice.APE, na.rm=TRUE)
+print(mape)
 
-mean(test$SalePrice.AbsError, na.rm = T)
-mean(test$SalePrice.APE, na.rm = T)
+```
+
+### Do prices and errors cluster - spatial lag & testing for SA in our current model
+```{r}
+coords.test <-  st_coordinates(test) 
+
+neighborList.test <- knn2nb(knearneigh(coords.test, 5))
+
+
+spatialWeights.test <- nb2listw(neighborList.test, style="W")
+ 
+test %>% 
+  mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
+  ggplot(aes(lagPriceError, SalePrice.Error))
 ```
 
 
+### Moran's I
+```{r}
+moranTest <- moran.mc(test$SalePrice.Error, 
+                      spatialWeights.test, nsim = 999)
+
+ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
+  geom_histogram(binwidth = 0.01) +
+  geom_vline(aes(xintercept = moranTest$statistic), colour = "#FA7800",size=1) +
+  scale_x_continuous(limits = c(-1, 1)) +
+  labs(title="Observed and permuted Moran's I",
+       subtitle= "Observed Moran's I in orange",
+       x="Moran's I",
+       y="Count") +
+  plotTheme()
+```
 
 
+# Results
+
+# Discussion
+
+# Conclusion
 
 # Appendix
 
