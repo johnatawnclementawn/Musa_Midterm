@@ -10,7 +10,7 @@ output: html_document
 
 knitr::opts_chunk$set(warning = FALSE)
 
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf, zipcodeR)
 library(ggcorrplot)
 
 
@@ -251,6 +251,8 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
+acsZipsCol.2019.sf <- search_city('Boulder', 'CO') 
+
 
 zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
@@ -266,7 +268,7 @@ studentData <- studentData %>%
   )
 
 ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf) +
+  geom_sf(data = acsZipsCol.2019.sf) +
   labs(title = "Census Tracts, Boulder County, Colorado")
 
 ```
@@ -950,12 +952,14 @@ coords.test <-  st_coordinates(test)
 
 neighborList.test <- knn2nb(knearneigh(coords.test, 5))
 
+
 spatialWeights.test <- nb2listw(neighborList.test, style="W")
  
 test %>% 
   mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
   ggplot(aes(lagPriceError, SalePrice.Error))
 ```
+
 
 ### Moran's I
 ```{r}
@@ -972,6 +976,7 @@ ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
        y="Count") +
   plotTheme()
 ```
+
 
 # Results
 
