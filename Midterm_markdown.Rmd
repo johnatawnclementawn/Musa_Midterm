@@ -907,7 +907,7 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>%
 summary(reg1)
 ```
 
-Testing accuracy using MAE
+Testing accuracy using MAE & MAPE
 ```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 set.seed(5)
 
@@ -930,22 +930,42 @@ test <- test %>%
          SalePrice.Error = SalePrice.Predict - price,
          SalePrice.AbsError = abs(SalePrice.Predict - price),
          SalePrice.APE = (abs(SalePrice.Predict - price)) / SalePrice.Predict)
+
+mae <- mean(test$SalePrice.AbsError, na.rm=TRUE)
+print(mae)
+mape <- mean(test$SalePrice.APE, na.rm=TRUE)
+print(mape)
+
 ```
 
+Do prices and errors cluster - spatial lag & testing for SA in our current model
+```{r eval=FALSE, include=FALSE}
+coords.test <-  st_coordinates(test) 
 
+neighborList.test <- knn2nb(knearneigh(coords.test, 5))
+
+spatialWeights.test <- nb2listw(neighborList.test, style="W")
+ 
+test %>% 
+  mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
+  ggplot(aes(lagPriceError, SalePrice.Error))
+```
+
+Moran's I
 ```{r}
-boston.test <-
-  boston.test %>%
-  mutate(SalePrice.Predict = predict(reg.training, boston.test),
-         SalePrice.Error = SalePrice.Predict - SalePrice,
-         SalePrice.AbsError = abs(SalePrice.Predict - SalePrice),
-         SalePrice.APE = (abs(SalePrice.Predict - SalePrice)) / SalePrice.Predict)%>%
-  filter(SalePrice < 5000000)
+moranTest <- moran.mc(test$SalePrice.Error, 
+                      spatialWeights.test, nsim = 999)
 
-
-
+ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
+  geom_histogram(binwidth = 0.01) +
+  geom_vline(aes(xintercept = moranTest$statistic), colour = "#FA7800",size=1) +
+  scale_x_continuous(limits = c(-1, 1)) +
+  labs(title="Observed and permuted Moran's I",
+       subtitle= "Observed Moran's I in orange",
+       x="Moran's I",
+       y="Count") +
+  plotTheme()
 ```
-
 
 
 # Appendix
