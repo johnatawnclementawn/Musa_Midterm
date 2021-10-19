@@ -864,6 +864,7 @@ B <- res %>%
   filter(value >= -0.5 & value < -0.3)
 
 corlist <- bind_rows(A,B)
+
 corlist <- corlist %>%
   group_by(value) %>%
   arrange(desc(value))
@@ -880,6 +881,7 @@ priceCor <- corlist %>%
 
 keep <- priceCor$name
 keep <- append(keep, "price")
+
 ```
 
 # OLS
