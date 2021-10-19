@@ -910,12 +910,8 @@ Testing accuracy using MAE
 set.seed(5)
 
 inTrain <- createDataPartition(
-              y = paste(studentData.training$mean_distance, 
-                        studentData.training$nbrBedRoom, 
-                        studentData.training$withinCity, 
-                        studentData.training$nbrRoomsNobath, 
-                        studentData.training$mainfloorSF,
-                        studentData.training$TotalFinishedSF),
+              y = paste(studentData.training$district,
+                        studentData.training$designCode),
               times = 1,
               p = .70, 
               list = FALSE)
@@ -927,11 +923,11 @@ keep <- append(keep, "District")
 reg.training <- lm(price ~ ., data = st_drop_geometry(training) %>% 
                                     dplyr::select(keep))
 
-f <- test %>%
+test <- test %>%
   mutate(SalePrice.Predict = predict(reg.training, test),
          SalePrice.Error = SalePrice.Predict - price,
          SalePrice.AbsError = abs(SalePrice.Predict - price),
-         SalePrice.APE = (abs(SalePrice.Predict - price)) / SalePrice.Predict))
+         SalePrice.APE = (abs(SalePrice.Predict - price)) / SalePrice.Predict)
 ```
 
 
