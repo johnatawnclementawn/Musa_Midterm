@@ -853,6 +853,18 @@ B <- res %>%
   filter(value >= -0.5 & value < -0.3)
 
 corlist <- bind_rows(A,B)
+
+corlistTest <- corlist %>%
+  mutate(rname_name = paste(rowname, name, sep = "_"),
+         name_rname = paste(name, rowname, sep = "_"))
+
+cltest <- corlistTest %>%
+  filter(!duplicated(cbind(rname_name,name_rname)))
+
+
+#corlistTest[!duplicated(corlistTest[c(4,5)]),] 
+
+
 ```
 
 # OLS
