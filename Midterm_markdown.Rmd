@@ -5,6 +5,7 @@ date: "9/29/2021"
 output: html_document
 ---
 
+
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
@@ -750,7 +751,7 @@ bind_rows(
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 studentData.training <- studentData %>%
     filter(toPredict == 0)
 
@@ -794,10 +795,13 @@ A <- bind_rows(
                names_to = "Amenities",
                values_to = "Distance")) %>%
   group_by(MUSA_ID) %>%
-  summarize(mean_distance = mean(Distance)) 
+  summarize(mean_distance = mean(Distance))
+
+studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
+
 ```
 Price as a function of categorical variables
-```{r, fig.height=15, fig.width=10}
+```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData.training) %>% 
   dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
   # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
@@ -810,8 +814,16 @@ st_drop_geometry(studentData.training) %>%
      plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-Correlation matrix
 ```{r}
+st_drop_geometry(studentData.training) %>%
+  select(price, District) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, District)) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+```
+
+Correlation matrix
+```{r message=FALSE, warning=FALSE}
 numericVars <- studentData.training %>%
                           select(!contains("nn"))
 
@@ -820,7 +832,6 @@ numericVars <-
   select(where(is.numeric)) %>%
   na.omit()
 
-numericVars <- left_join(numericVars, A, by = "MUSA_ID")
 numericVars$mean_distance <- as.integer(numericVars$mean_distance)
 
 numericVars <- numericVars %>%
@@ -854,23 +865,30 @@ B <- res %>%
 
 corlist <- bind_rows(A,B)
 
-corlistTest <- corlist %>%
-  mutate(rname_name = paste(rowname, name, sep = "_"),
-         name_rname = paste(name, rowname, sep = "_"))
+corlist <- corlist %>%
+  group_by(value) %>%
+  arrange(desc(value))
 
-cltest <- corlistTest %>%
-  filter(!duplicated(cbind(rname_name,name_rname)))
+#all odd numbers between 1 and 80
+keep <- c(1:80)
+keep <- which(keep %% 2 == 1)
 
+corlist <- corlist %>%
+             slice(keep) 
 
-#corlistTest[!duplicated(corlistTest[c(4,5)]),] 
+priceCor <- corlist %>%
+  filter(rowname == "price")
 
+keep <- priceCor$name
+keep <- append(keep, "price")
 
 ```
 
 # OLS
-```{r}
-cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
+```{r warning=FALSE}
+cor.test(studentData.training$mean_distance, studentData.training$price, method = "pearson")
 
+cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
 
 livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
 
@@ -879,29 +897,53 @@ summary(livingReg)
 
 Multiple regression
 
-```{r}
+```{r message=FALSE, warning=FALSE}
+studentData.training %>%
+  select(keep)
+
 reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
-       dplyr::select(price, TotalFinishedSF, age, nbrBedRoom, 
-        nbrFullBaths, designCodeDscr, 
-        ConstCodeDscr, carStorageTypeDscr,
-        bsmtSF, AcDscr,  HeatingDscr))
+       dplyr::select(keep))
+
 summary(reg1)
 ```
 
 Testing accuracy using MAE
-```{r}
-inTrain <- createDataPartition(
-              y = paste(studentData.training$TotalFinishedSF, boston.sf$Style, boston.sf$R_AC), 
-              p = .60, list = FALSE)
-boston.training <- boston.sf[inTrain,] 
-boston.test <- boston.sf[-inTrain,]  
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+set.seed(5)
 
-reg.training <- lm(SalePrice ~ ., data = st_drop_geometry(boston.training) %>% 
-                                    dplyr::select(SalePrice, LivingArea, Style, 
-                                               GROSS_AREA, NUM_FLOORS.cat,
-                                               R_BDRMS, R_FULL_BTH, R_HALF_BTH, 
-                                               R_KITCH, R_AC, R_FPLACE,
-                                               crimes.Buffer))
+inTrain <- createDataPartition(
+              y = paste(studentData.training$district,
+                        studentData.training$designCode),
+              times = 1,
+              p = .70, 
+              list = FALSE)
+
+training <- studentData.training[inTrain,] 
+test <- studentData.training[-inTrain,]  
+
+keep <- append(keep, "District")
+reg.training <- lm(price ~ ., data = st_drop_geometry(training) %>% 
+                                    dplyr::select(keep))
+
+test <- test %>%
+  mutate(SalePrice.Predict = predict(reg.training, test),
+         SalePrice.Error = SalePrice.Predict - price,
+         SalePrice.AbsError = abs(SalePrice.Predict - price),
+         SalePrice.APE = (abs(SalePrice.Predict - price)) / SalePrice.Predict)
+```
+
+
+```{r}
+boston.test <-
+  boston.test %>%
+  mutate(SalePrice.Predict = predict(reg.training, boston.test),
+         SalePrice.Error = SalePrice.Predict - SalePrice,
+         SalePrice.AbsError = abs(SalePrice.Predict - SalePrice),
+         SalePrice.APE = (abs(SalePrice.Predict - SalePrice)) / SalePrice.Predict)%>%
+  filter(SalePrice < 5000000)
+
+
+
 ```
 
 
