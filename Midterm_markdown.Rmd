@@ -10,7 +10,7 @@ output: html_document
 
 knitr::opts_chunk$set(warning = FALSE)
 
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf)
+pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf, zipcodeR)
 library(ggcorrplot)
 
 
@@ -170,6 +170,8 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
+acsZipsCol.2019.sf <- search_city('Boulder', 'CO') 
+
 
 zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
@@ -185,7 +187,7 @@ studentData <- studentData %>%
   )
 
 ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf) +
+  geom_sf(data = acsZipsCol.2019.sf) +
   labs(title = "Census Tracts, Boulder County, Colorado")
 
 # # Read in census Block groups
@@ -878,8 +880,11 @@ corlist <- corlist %>%
 priceCor <- corlist %>%
   filter(rowname == "price")
 
-keep <- priceCor$name
-keep <- append(keep, "price")
+a <- corlist$rowname
+b <- corlist$name
+
+keep <- unique(append(a,b))
+
 ```
 
 # OLS
@@ -928,21 +933,13 @@ test <- test %>%
          SalePrice.Error = SalePrice.Predict - price,
          SalePrice.AbsError = abs(SalePrice.Predict - price),
          SalePrice.APE = (abs(SalePrice.Predict - price)) / SalePrice.Predict)
+
+
+mean(test$SalePrice.AbsError, na.rm = T)
+mean(test$SalePrice.APE, na.rm = T)
 ```
 
 
-```{r}
-boston.test <-
-  boston.test %>%
-  mutate(SalePrice.Predict = predict(reg.training, boston.test),
-         SalePrice.Error = SalePrice.Predict - SalePrice,
-         SalePrice.AbsError = abs(SalePrice.Predict - SalePrice),
-         SalePrice.APE = (abs(SalePrice.Predict - SalePrice)) / SalePrice.Predict)%>%
-  filter(SalePrice < 5000000)
-
-
-
-```
 
 
 
