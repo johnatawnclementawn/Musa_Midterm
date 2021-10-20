@@ -374,7 +374,6 @@ ggplot() +
           color = "Black")
 ```
 
-
 #### Boulder City Fixed Effect
 ```{r city_Limits}
 boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
@@ -393,9 +392,8 @@ studentData <- studentData %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
 ```
 
-
 #### Boulder County Zip codes
-```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
+```{r Zip_codes, warning=FALSE}
 
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
@@ -439,6 +437,38 @@ ggplot() +
   geom_sf(data = acsZipsCol.2019.sf) +
   labs(title = "Zip Tracts, Boulder County, Colorado")
 ```
+
+
+#### Boulder City Fixed Effect
+```{r city_Limits}
+boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
+  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
+  mutate(inCity = 1)
+
+# Determine if a house is within the city or not - used for cases in which only city data is available
+studentData <- studentData %>%
+  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
+
+studentData <- studentData %>%
+  mutate(withinCity = replace_na(withinCity,"0"))
+
+# Change 
+studentData <- studentData %>%
+  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+
+zips <- c(80301:80305)
+zips <- as.character(zips)
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf %>%
+            filter(GEOID %in% zips)) +
+  geom_sf(data = studentData) +
+  geom_sf(data = boulderCityLimits,
+          fill = "transparent",
+          border = 2)
+```
+
+
 
 
 #### External factors
