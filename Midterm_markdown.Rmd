@@ -103,21 +103,23 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
   st_transform(CO_statePlaneCentral)%>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf)
 
-# # Read in census Block groups
-# acsBGCol.2019.sf <- get_acs(geography = "block group",
-#         year = 2019,
-#         variables = Variables$name, 
-#         state="Colorado",
-#         county= c("Boulder"),
-#         geometry=T,
-#         output = "wide") %>% 
-#   st_transform(CO_statePlaneCentral) %>%
-#   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
-# 
-# ggplot() +
-#   geom_sf(data = acsBGCol.2019.sf)+
-#   labs(title = "Census Block Groups, Boulder County, Colorado")
+# Read in census Block groups
+ acsBGCol.2019.sf <- get_acs(geography = "block group",
+         year = 2019,
+         variables = Variables$name, 
+         state="Colorado",
+         county= c("Boulder"),
+         geometry=T,
+         output = "wide") %>% 
+   st_transform(CO_statePlaneCentral) %>%
+   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+ 
+ ggplot() +
+   geom_sf(data = acsBGCol.2019.sf)+
+   labs(title = "Census Block Groups, Boulder County, Colorado")
 
 ```
 
@@ -210,11 +212,11 @@ studentData <- studentData %>%
   )
 
 
-ggplot() +
-  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
-          fill = "red") +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent")
+#ggplot() +
+#  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
+#          fill = "red") +
+#  geom_sf(data = st_union(acsTractsCol.2019.sf),
+#         fill = "transparent")
 ```
 
 
@@ -234,6 +236,17 @@ studentData <- studentData %>%
 # Change 
 studentData <- studentData %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+
+zips <- c(80301:80305)
+zips <- as.character(zips)
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf %>%
+            filter(zipcode %in% zips)) +
+  geom_sf(data = studentData) +
+  geom_sf(data = boulderCityLimits,
+          fill = "transparent",
+          border = 2)
 ```
 
 
@@ -251,12 +264,25 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
-acsZipsCol.2019.sf <- search_city('Boulder', 'CO') 
 
-
-zipcodes <- st_overlaps(st_union(acsTractsCol.2019.sf), acsZipsCol.2019.sf)
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
-  slice(zipcodes[[1]])
+  st_intersection(st_union(acsTractsCol.2019.sf)) %>%
+  st_sf()
+
+# # boulderCo_flood <- COState_flood %>%
+# #   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
+# #   st_sf()
+
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf) +
+  geom_sf(data = studentData)
+
+# zuocodeR package
+acsZipsCol.2019 <- search_county('Boulder', 'CO') 
+
+#ggplot() +
+#  geom_sf(data = acsZipsCol.2019)
 
 # Assign a zipcode to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
@@ -269,7 +295,7 @@ studentData <- studentData %>%
 
 ggplot() +
   geom_sf(data = acsZipsCol.2019.sf) +
-  labs(title = "Census Tracts, Boulder County, Colorado")
+  labs(title = "Zip Tracts, Boulder County, Colorado")
 
 ```
 
@@ -758,6 +784,45 @@ bind_rows(
     plotTheme()
 ```
 
+Price as a function of categorical variables
+```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData) %>% 
+  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
+  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
+  filter(price <= 5000000) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
+     facet_wrap(~Variable, ncol = 1, scales = "free") +
+     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
+     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+st_drop_geometry(studentData) %>%
+  select(price, District) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, District)) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+```
+
+```{r}
+st_drop_geometry(studentData) %>%
+  filter(price <= 5000000) %>%
+  group_by(Zip) %>%
+  summarize(Frequency = n()) %>%
+  arrange(desc(Zip))
+
+```
+
+
+```{r}
+st_drop_geometry(studentData) %>%
+  select(price, Zip) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, Zip)) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+```
 
 ```{r message=FALSE, warning=FALSE}
 studentData.training <- studentData %>%
@@ -808,27 +873,7 @@ A <- bind_rows(
 studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
 
 ```
-Price as a function of categorical variables
-```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
-st_drop_geometry(studentData.training) %>% 
-  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
-  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
-  filter(price <= 5000000) %>%
-  gather(Variable, Value, -price) %>% 
-   ggplot(aes(Value, price)) +
-     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
-     facet_wrap(~Variable, ncol = 1, scales = "free") +
-     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
-     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
 
-```{r}
-st_drop_geometry(studentData.training) %>%
-  select(price, District) %>%
-  filter(price <= 5000000) %>%
-  ggplot(aes(price, District)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
-```
 
 Correlation matrix
 ```{r message=FALSE, warning=FALSE}
@@ -888,7 +933,10 @@ priceCor <- corlist %>%
   filter(rowname == "price")
 
 keep <- priceCor$name
-keep <- append(keep, "price")
+
+categorical <- c("Zip","District","price")
+keep <- append(keep, categorical)
+
 
 ```
 
@@ -921,7 +969,8 @@ set.seed(5)
 
 inTrain <- createDataPartition(
               y = paste(studentData.training$district,
-                        studentData.training$designCode),
+                        studentData.training$designCode,
+                        studentData.training$Zip),
               times = 1,
               p = .70, 
               list = FALSE)
@@ -932,6 +981,8 @@ test <- studentData.training[-inTrain,]
 keep <- append(keep, "District")
 reg.training <- lm(price ~ ., data = st_drop_geometry(training) %>% 
                                     dplyr::select(keep))
+
+summary(reg.training)
 
 test <- test %>%
   mutate(SalePrice.Predict = predict(reg.training, test),
