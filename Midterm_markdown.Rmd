@@ -685,6 +685,64 @@ Buffer_Museums <- st_union(st_buffer(Museums, 5280) %>%
       mutate(Legend = "Buffer") %>%
       dplyr::select(Legend))
 
+###############################
+# New Features as of 10.19.2021
+
+#Recreation businesses from DataAxle
+Recreation <- read.csv("DataAxle_Recreation.csv") %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
+  st_transform(CO_statePlaneCentral)
+
+Buffer_Recreation <- st_union(st_buffer(Recreation, 5280) %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend))
+
+#Police departments from DataAxle
+PoliceDepartments <- read.csv("DataAxle_PoliceDepartments.csv") %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
+  st_transform(CO_statePlaneCentral)
+
+Buffer_PoliceDepartments <- st_union(st_buffer(PoliceDepartments, 5280) %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend))
+
+#Fire and EMT departments from DataAxle
+FireandEMT <- read.csv("DataAxle_FireandEMT.csv") %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
+  st_transform(CO_statePlaneCentral)
+
+Buffer_FireandEMT <- st_union(st_buffer(FireandEMT, 5280) %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend))
+
+#Hospitals from DataAxle
+Hospitals <- read.csv("DataAxle_Hospitals.csv") %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
+  st_transform(CO_statePlaneCentral)
+
+Buffer_Hospitals <- st_union(st_buffer(Hospitals, 5280) %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend))
+
+#ShoppingMalls from DataAxle
+ShoppingMalls <- read.csv("DataAxle_ShoppingMalls.csv") %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
+  st_transform(CO_statePlaneCentral)
+
+Buffer_ShoppingMalls <- st_union(st_buffer(ShoppingMalls, 5280) %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend))
+
+#Marijuana Dispensaries from DataAxle
+Dispensaries <- read.csv("DataAxle_MarijuanaDispensaries.csv") %>%
+  st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
+  st_transform(CO_statePlaneCentral)
+
+Buffer_Dispensaries <- st_union(st_buffer(Dispensaries, 5280) %>%
+      mutate(Legend = "Buffer") %>%
+      dplyr::select(Legend))
+
+
 
 ```
 
@@ -724,6 +782,7 @@ studentData <- studentData %>%
          Museums_nn4 = nn_function(st_c(studentData), st_c(Museums), 4),
          Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
 
+
 studentData <- studentData %>%
   mutate(floodpts_nn1 = nn_function(st_c(studentData), st_c(flood_pts), 1),
          floodpts_nn2 = nn_function(st_c(studentData), st_c(flood_pts), 2),
@@ -737,6 +796,49 @@ studentData <- studentData %>%
          Library_nn3 = nn_function(st_c(studentData), st_c(Col_Library), 3),
          Library_nn4 = nn_function(st_c(studentData), st_c(Col_Library), 4),
          Library_nn5 = nn_function(st_c(studentData), st_c(Col_Library), 5))
+
+
+studentData <- studentData %>%
+  mutate(recreation_nn1 = nn_function(st_c(studentData), st_c(Recreation), 1),
+         recreation_nn2 = nn_function(st_c(studentData), st_c(Recreation), 2),
+         recreation_nn3 = nn_function(st_c(studentData), st_c(Recreation), 3),
+         recreation_nn4 = nn_function(st_c(studentData), st_c(Recreation), 4),
+         recreation_nn5 = nn_function(st_c(studentData), st_c(Recreation), 5))
+
+studentData <- studentData %>%
+  mutate(pd_nn1 = nn_function(st_c(studentData), st_c(PoliceDepartments), 1),
+         pd_nn2 = nn_function(st_c(studentData), st_c(PoliceDepartments), 2),
+         pd_nn3 = nn_function(st_c(studentData), st_c(PoliceDepartments), 3),
+         pd_nn4 = nn_function(st_c(studentData), st_c(PoliceDepartments), 4),
+         pd_nn5 = nn_function(st_c(studentData), st_c(PoliceDepartments), 5))
+
+studentData <- studentData %>%
+  mutate(fd_emt_nn1 = nn_function(st_c(studentData), st_c(FireandEMT), 1),
+         fd_emt_nn2 = nn_function(st_c(studentData), st_c(FireandEMT), 2),
+         fd_emt_nn3 = nn_function(st_c(studentData), st_c(FireandEMT), 3),
+         fd_emt_nn4 = nn_function(st_c(studentData), st_c(FireandEMT), 4),
+         fd_emt_nn5 = nn_function(st_c(studentData), st_c(FireandEMT), 5))
+
+studentData <- studentData %>%
+  mutate(hospitals_nn1 = nn_function(st_c(studentData), st_c(Hospitals), 1),
+         hospitals_nn2 = nn_function(st_c(studentData), st_c(Hospitals), 2),
+         hospitals_nn3 = nn_function(st_c(studentData), st_c(Hospitals), 3),
+         hospitals_nn4 = nn_function(st_c(studentData), st_c(Hospitals), 4),
+         hospitals_nn5 = nn_function(st_c(studentData), st_c(Hospitals), 5))
+
+studentData <- studentData %>%
+  mutate(malls_nn1 = nn_function(st_c(studentData), st_c(ShoppingMalls), 1),
+         malls_nn2 = nn_function(st_c(studentData), st_c(ShoppingMalls), 2),
+         malls_nn3 = nn_function(st_c(studentData), st_c(ShoppingMalls), 3),
+         malls_nn4 = nn_function(st_c(studentData), st_c(ShoppingMalls), 4),
+         malls_nn5 = nn_function(st_c(studentData), st_c(ShoppingMalls), 5))
+
+studentData <- studentData %>%
+  mutate(dispensaries_nn1 = nn_function(st_c(studentData), st_c(Dispensaries), 1),
+         dispensaries_nn2 = nn_function(st_c(studentData), st_c(Dispensaries), 2),
+         dispensaries_nn3 = nn_function(st_c(studentData), st_c(Dispensaries), 3),
+         dispensaries_nn4 = nn_function(st_c(studentData), st_c(Dispensaries), 4),
+         dispensaries_nn5 = nn_function(st_c(studentData), st_c(Dispensaries), 5))
 ```
 
 # Methods
@@ -1157,7 +1259,9 @@ priceCor <- corlist %>%
 
 keep <- priceCor$name
 
-categorical <- c("Zip","District","price")
+# JC HAD TO REMOVE ZIP BECAUSE I DON'T HAVE THE WORKING ZIPCODES CODE RN - 10.20.2021@ 1230AM
+categorical <- c("District","price")
+# categorical <- c("Zip","District","price")
 keep <- append(keep, categorical)
 
 
