@@ -274,6 +274,7 @@ ggplot() +
 ```
 
 
+#### External factors
 
 Website available for data https://open-data.bouldercolorado.gov/ 
 ```{r colorado_data, message=TRUE, warning=FALSE}
@@ -303,32 +304,43 @@ Website available for data https://open-data.bouldercolorado.gov/
 #   labs(title = "Accessory Dwelling Units")
 # 
 # 
-# # Locations of 100 Year floodplain within Boulder County
-# # Data originally for the whole state, subsetted to Boulder County via st_intersect
-# ## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
-# ## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
-# 
-# 
-# # # Process for creating Boulder County Flood Plains shp
-# # COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
-# #   st_transform(CO_statePlaneCentral)
-# # 
-# # boulderCo_flood <- COState_flood %>%
-# #   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
-# #   st_sf()
-# # 
-# # # Create Geopackage for ease of transport - only one file
-# # st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
-# 
-# boulderCo_flood_shp <- st_read("boulderCo_100yrFloodZones.gpkg")
-# 
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = boulderCo_flood_shp)
-# 
-# 
+```
+
+```{r floodplains}
+# Locations of 100 Year floodplain within Boulder County
+# Data originally for the whole state, subsetted to Boulder County via st_intersect
+## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
+## About this dataset: https://open-data.bouldercolorado.gov/datasets/bfc343d63cf54831810b983b36ce6872_3/about
+
+# # Process for creating Boulder County Flood Plains shp
+# COState_flood <- st_read("CO_state_100yrFloodplains.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+#
+# boulderCo_flood <- COState_flood %>%
+#   st_intersection(st_union(acsTractsCol.2019.sf)) %>%
+#   st_sf()
+#
+# # Create Geopackage for ease of transport - only one file
+# st_write(boulderCo_flood, "boulderCo_100yrFloodZones.gpkg")
+
+boulderCo_flood_gpkg <- st_read("boulderCo_100yrFloodZones.gpkg")
+
+# Convert floodplain polygons to polylines
+flood_boundaries <- st_boundary(boulderCo_flood_gpkg)
+
+# Sample flood boundaries to get point data (used to pass to the nearest neighbor function)
+flood_pts <- st_sample(flood_boundaries, size = 2500, type = 'regular')
+
+
+ggplot() +
+  geom_sf(data = st_union(acsTractsCol.2019.sf),
+          fill = "transparent") +
+  geom_sf(data = flood_pts, aes(color = "Blue")) +
+  geom_sf(data = studentData)
+
+```
+
+```{r} 
 # # Locations of Zoning districts
 # ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
 # ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
@@ -344,7 +356,6 @@ Website available for data https://open-data.bouldercolorado.gov/
 
 # Locations of 19 libraries 
 ## https://opendata-bouldercounty.hub.arcgis.com/datasets/libraries-2/explore?location=40.001009%2C-105.302539%2C11.28
-
 Col_Library <- st_read("https://opendata.arcgis.com/datasets/7f4ea25ba87345e380d2e896611d2588_0.geojson") %>%
   st_transform(st_crs(acsTractsCol.2019.sf)) %>%
   select(c(Name, geometry))
