@@ -23,10 +23,10 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 ```
 
 # Introduction
-
+  The intent of this report is to use local intelligence to improve zillow's predictive model utilizing only OLS regression. What we did to improve the model was include [INSERT VARAIBLES HERE].
 
 # Data
-
+  We were first given a dataset that included housing prices and the points where they were located. From here, we decided to organize our data between fixed-effect and nearest neighbors. Fixed-effects take into consideration points that lie within a designated boundary. For example, all houses in a particular zip code would undergo a similar fixed-effect because they all inhabit that zip code. In contrast, the nearest neighbor calculates the distance between two points and takes the average of those distances by nearest neighbor value [EXPAND ON THIS LATER]. 
 
 #### Home prices dataset
 ```{r housedata, message=FALSE, warning=FALSE, include=FALSE}
@@ -53,6 +53,7 @@ studentData$pricePerSF <- as.integer(studentData$pricePerSF)
 
 
 #### Census 2019
+The first fixed effect variables that we looked at was census tract. Although, we are  
 ```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE}
 
 #variables on frequency of Race
@@ -101,9 +102,43 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
         geometry=T,
         output = "wide") %>% 
   st_transform(CO_statePlaneCentral)%>%
-  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E"))) %>%
+  rename(Total_pop = Variables$Merge_name[1],
+         White_pop = Variables$Merge_name[2],
+         Black_pop = Variables$Merge_name[3],
+         American_Indian_pop = Variables$Merge_name[4],
+         Asian_pop = Variables$Merge_name[5],
+         Hawiian_PI_pop = Variables$Merge_name[6],
+         OtherRace_pop = Variables$Merge_name[7],
+         two_or_more_pop = Variables$Merge_name[8],
+         two_other_pop = Variables$Merge_name[9],
+         two_or_more_exclude_pop = Variables$Merge_name[10],
+         Median_age = Variables$Merge_name[11],
+         Median_Male_age = Variables$Merge_name[12],
+         Median_Female_age = Variables$Merge_name[13],
+         MortgagesTotal_mortgage = Variables$Merge_name[14],
+         MortgagesHas_mortgage = Variables$Merge_name[15],
+         Mortgage200Less_mortgage = Variables$Merge_name[16],
+         Mortgage200_299_mortgage = Variables$Merge_name[17],
+         Mortgage300_399_mortgage = Variables$Merge_name[18],
+         Mortgage400_499_mortgage = Variables$Merge_name[19],
+         Mortgage500_599_mortgage = Variables$Merge_name[20],
+         Mortgage600_699_mortgage = Variables$Merge_name[21],
+         Mortgage700_799_mortgage = Variables$Merge_name[22],
+         Mortgage800_899_mortgage = Variables$Merge_name[23],
+         Mortgage900_999_mortgage = Variables$Merge_name[24],
+         Mortgage1000_1249_mortgage = Variables$Merge_name[25],
+         Mortgage1250_1499_mortgage = Variables$Merge_name[26],
+         Mortgage1500_1999_mortgage = Variables$Merge_name[27],
+         Mortgage2000_2499_mortgage = Variables$Merge_name[28],
+         Mortgage2500_2999_mortgage = Variables$Merge_name[29],
+         Mortgage3000_3499_mortgage = Variables$Merge_name[30],
+         Mortgage3500_3999_mortgage = Variables$Merge_name[31],
+         Mortgage3750_3999_mortgage = Variables$Merge_name[32],
+         Mortgage4000_mortgage = Variables$Merge_name[33]) 
+         
 
-ggplot() +
+  ggplot() +
   geom_sf(data = acsTractsCol.2019.sf)
 
 # Read in census Block groups
@@ -120,6 +155,153 @@ ggplot() +
  ggplot() +
    geom_sf(data = acsBGCol.2019.sf)+
    labs(title = "Census Block Groups, Boulder County, Colorado")
+
+ 
+ 
+studentData <- studentData %>%
+  mutate(
+    tracts = as.integer(st_intersects(geometry,acsTractsCol.2019.sf)))
+# Assign a school district to each home
+# Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
+studentData <- studentData %>%
+  mutate(
+    tracts = as.integer(st_intersects(geometry,acsTractsCol.2019.sf)))
+    #,
+    #schoolDist_name = if_else(is.na(District), "", acsSchoolDistrctssCol.2019.sf$NAME[District])
+
+```
+
+
+## Birds of a feather flock together
+
+### Census Tracts by Race
+
+q3 is the census tracts that have a median amount of white people. As a fixed effect, this would say for census tracts with the median amount of white people, what does the price look like?
+q4_5 is census tracts that have above the median amount of white people. 
+q1_3 is census tracts that have less then the median amount of white people
+
+This disadvantage to using fixed effects is that they have to be binary, either they do or do not contain something, so in the case of race I used below the median, above the median and median as binaried functions. 
+
+```{r eval=FALSE, include=FALSE}
+# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries. 
+
+acsTractsCol.2019.sf <- acsTractsCol.2019.sf %>% 
+  mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop),
+         Black_Quartile = q5(acsTractsCol.2019.sf$Black_pop),
+         Asian_Quartile = q5(acsTractsCol.2019.sf$Asian_pop),
+         American_Indian_Quartile = q5(acsTractsCol.2019.sf$American_Indian_pop),
+         Hawiian_PI_Quartile = q5(acsTractsCol.2019.sf$Hawiian_PI_pop),
+         OtherRace_Quartile = q5(acsTractsCol.2019.sf$OtherRace_pop),
+         two_or_more_Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop),
+         two_other_Quartile = q5(acsTractsCol.2019.sf$two_other_pop),
+         two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
+
+White <- acsTractsCol.2019.sf %>% 
+  select(GEOID, White_pop) %>%
+  mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop))
+
+Black <- acsTractsCol.2019.sf %>% 
+  select(GEOID, Black_pop) %>%
+  mutate(Black_Quartile = q5(acsTractsCol.2019.sf$Black_pop))
+
+Asian <- acsTractsCol.2019.sf %>% 
+  select(GEOID, Asian_pop) %>%
+  mutate(Asian_Quartile = q5(acsTractsCol.2019.sf$Asian_pop))
+
+American_Indian <- acsTractsCol.2019.sf %>% 
+  select(GEOID, American_Indian_pop) %>%
+  mutate(American_Indian_Quartile = q5(acsTractsCol.2019.sf$American_Indian_pop))
+
+Hawiian_PI <- acsTractsCol.2019.sf %>% 
+  select(GEOID, Hawiian_PI_pop) %>%
+  mutate(Hawiian_PI_Quartile = q5(acsTractsCol.2019.sf$Hawiian_PI_pop))
+
+OtherRace <- acsTractsCol.2019.sf %>% 
+  select(GEOID, OtherRace_pop) %>%
+  mutate(OtherRace_Quartile = q5(acsTractsCol.2019.sf$OtherRace_pop))
+
+two_or_more <- acsTractsCol.2019.sf %>% 
+  select(GEOID, two_or_more_pop) %>%
+  mutate(two_or_more _Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop))
+
+two_other <- acsTractsCol.2019.sf %>% 
+  select(GEOID, two_other_pop) %>%
+  mutate(two_other_Quartile = q5(acsTractsCol.2019.sf$two_other_pop))
+
+two_or_more_exclude <- acsTractsCol.2019.sf %>% 
+  select(GEOID, two_or_more_exclude_pop) %>%
+  mutate(two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
+
+```
+
+
+
+
+```{r Race_don'trun, eval=FALSE, include=FALSE}
+# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries. 
+
+White <- acsTractsCol.2019.sf %>% 
+  select(GEOID, White_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$White_pop)),
+         Race_Whiteq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_Whiteq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_Whiteq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+Black <- acsTractsCol.2019.sf %>% 
+  select(GEOID, Black_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$Black_pop)),
+         Race_Blackq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_Blackq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_Blackq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+Asian <- acsTractsCol.2019.sf %>% 
+  select(GEOID, Asian_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$Asian_pop)),
+         Race_Asianq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_Asianq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_Asianq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+American_Indian <- acsTractsCol.2019.sf %>% 
+  select(GEOID, American_Indian_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$American_Indian_pop)),
+         Race_American_Indianq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_American_Indianq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_American_Indianq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+Hawiian_PI <- acsTractsCol.2019.sf %>% 
+  select(GEOID, Hawiian_PI_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$Hawiian_PI_pop)),
+         Race_Hawiian_PIq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_Hawiian_PIq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_Hawiian_PIq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+OtherRace <- acsTractsCol.2019.sf %>% 
+  select(GEOID, OtherRace_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$OtherRace_pop)),
+         RaceOther_Raceq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         RaceOther_Raceq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         RaceOther_Raceq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+two_or_more <- acsTractsCol.2019.sf %>% 
+  select(GEOID, two_or_more_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$two_or_more_pop)),
+         Race_two_or_moreq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_two_or_moreq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_two_or_moreq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+two_other <- acsTractsCol.2019.sf %>% 
+  select(GEOID, two_other_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$two_other_pop)),
+         Race_two_otherq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_two_otherq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_two_otherq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
+
+two_or_more_exclude <- acsTractsCol.2019.sf %>% 
+  select(GEOID, two_or_more_exclude_pop) %>%
+  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$two_or_more_exclude_pop)),
+         Race_two_or_more_excludeq3 = ifelse(Quartile == 3, TRUE, FALSE),
+         Race_two_or_more_excludeq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
+         Race_two_or_more_excludeq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
 
 ```
 
@@ -252,8 +434,6 @@ ggplot() +
 
 #### Boulder County Zip codes
 ```{r Zip_codes, eval=FALSE, warning=FALSE, include=FALSE}
-# ZIPCODE DATA IS CURRENTLY NOT WORKING. THERE'S A GIANT HOLE IN THE MIDDLE OF COLORADO WITH NO POINTS. 
-
 
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
@@ -355,8 +535,8 @@ boulderCo_flood_gpkg <- st_read("boulderCo_100yrFloodZones.gpkg")
 flood_boundaries <- st_boundary(boulderCo_flood_gpkg)
 
 # Sample flood boundaries to get point data (used to pass to the nearest neighbor function)
-flood_pts <- st_sample(flood_boundaries, size = 2500, type = 'regular')
-
+flood_pts <- st_sample(flood_boundaries, size = 500, type = 'regular')
+flood_pts <- st_cast(flood_pts, 'POINT')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -414,7 +594,10 @@ ggplot() +
 
 # Properties managed by parks and recreation polygons ## https://open-data.bouldercolorado.gov/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1/explore?location=40.026750%2C-105.234200%2C12.05 
 Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1.geojson")
-
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf) +
+  geom_sf(data = Parks,
+          fill = "pink")
 
 # Urban trees
 ## https://open-data.bouldercolorado.gov/datasets/dbbae8bdb0a44d17934243b88e85ef2b_0/explore?location=40.015538%2C-105.275671%2C16.12
@@ -598,6 +781,21 @@ studentData <- studentData %>%
          Museums_nn3 = nn_function(st_c(studentData), st_c(Museums), 3),
          Museums_nn4 = nn_function(st_c(studentData), st_c(Museums), 4),
          Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
+
+
+studentData <- studentData %>%
+  mutate(floodpts_nn1 = nn_function(st_c(studentData), st_c(flood_pts), 1),
+         floodpts_nn2 = nn_function(st_c(studentData), st_c(flood_pts), 2),
+         floodpts_nn3 = nn_function(st_c(studentData), st_c(flood_pts), 3),
+         floodpts_nn4 = nn_function(st_c(studentData), st_c(flood_pts), 4),
+         floodpts_nn5 = nn_function(st_c(studentData), st_c(flood_pts), 5))
+
+studentData <- studentData %>%
+  mutate(Library_nn1 = nn_function(st_c(studentData), st_c(Col_Library), 1),
+         Library_nn2 = nn_function(st_c(studentData), st_c(Col_Library), 2),
+         Library_nn3 = nn_function(st_c(studentData), st_c(Col_Library), 3),
+         Library_nn4 = nn_function(st_c(studentData), st_c(Col_Library), 4),
+         Library_nn5 = nn_function(st_c(studentData), st_c(Col_Library), 5))
 
 
 studentData <- studentData %>%
@@ -854,6 +1052,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn1")) %>%
+  select(!starts_with("flood_pts")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
@@ -861,6 +1060,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn2")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
@@ -868,6 +1068,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
@@ -875,6 +1076,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
@@ -882,6 +1084,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
@@ -891,7 +1094,7 @@ bind_rows(
   ggplot(aes(mean_distance,price)) +
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    labs(title = "Nearest Neighbor Average and Price") +
+    labs(title = "Amenities Nearest Neighbor Average and Price") +
   facet_wrap(~nn) +
     plotTheme()
 ```
@@ -947,6 +1150,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn1")) %>%
+  select(!starts_with("flood_pts")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
@@ -954,6 +1158,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn2")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
@@ -961,6 +1166,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
@@ -968,6 +1174,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
@@ -975,6 +1182,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
@@ -990,7 +1198,11 @@ studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
 Correlation matrix
 ```{r message=FALSE, warning=FALSE}
 numericVars <- studentData.training %>%
-                          select(!contains("nn"))
+                  select(!starts_with("grocery")) %>%
+                  select(!starts_with("restaurant")) %>%
+                  select(!starts_with("Education")) %>%
+                  select(!starts_with("Museums")) %>%
+                  select(!starts_with("Library"))
 
 numericVars <- 
   st_drop_geometry(numericVars) %>% 
@@ -1019,13 +1231,13 @@ rownames_to_column()
 A <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
-  pivot_longer(2:25) %>%
+  pivot_longer(2:30) %>%
   filter(value >= 0.3 & value <0.5)
 
 B <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
-  pivot_longer(2:25) %>%
+  pivot_longer(2:30) %>%
   filter(value >= -0.5 & value < -0.3)
 
 corlist <- bind_rows(A,B)
@@ -1035,12 +1247,13 @@ corlist <- corlist %>%
   arrange(desc(value))
 
 #all odd numbers between 1 and 80
-keep <- c(1:80)
+keep <- c(1:nrow(corlist))
 keep <- which(keep %% 2 == 1)
 
 corlist <- corlist %>%
              slice(keep) 
 
+# includes all correlated with price
 priceCor <- corlist %>%
   filter(rowname == "price")
 
