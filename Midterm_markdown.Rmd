@@ -355,8 +355,8 @@ boulderCo_flood_gpkg <- st_read("boulderCo_100yrFloodZones.gpkg")
 flood_boundaries <- st_boundary(boulderCo_flood_gpkg)
 
 # Sample flood boundaries to get point data (used to pass to the nearest neighbor function)
-flood_pts <- st_sample(flood_boundaries, size = 2500, type = 'regular')
-
+flood_pts <- st_sample(flood_boundaries, size = 500, type = 'regular')
+flood_pts <- st_cast(flood_pts, 'POINT')
 
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -414,7 +414,10 @@ ggplot() +
 
 # Properties managed by parks and recreation polygons ## https://open-data.bouldercolorado.gov/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1/explore?location=40.026750%2C-105.234200%2C12.05 
 Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1.geojson")
-
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf) +
+  geom_sf(data = Parks,
+          fill = "pink")
 
 # Urban trees
 ## https://open-data.bouldercolorado.gov/datasets/dbbae8bdb0a44d17934243b88e85ef2b_0/explore?location=40.015538%2C-105.275671%2C16.12
@@ -540,6 +543,20 @@ studentData <- studentData %>%
          Museums_nn3 = nn_function(st_c(studentData), st_c(Museums), 3),
          Museums_nn4 = nn_function(st_c(studentData), st_c(Museums), 4),
          Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
+
+studentData <- studentData %>%
+  mutate(floodpts_nn1 = nn_function(st_c(studentData), st_c(flood_pts), 1),
+         floodpts_nn2 = nn_function(st_c(studentData), st_c(flood_pts), 2),
+         floodpts_nn3 = nn_function(st_c(studentData), st_c(flood_pts), 3),
+         floodpts_nn4 = nn_function(st_c(studentData), st_c(flood_pts), 4),
+         floodpts_nn5 = nn_function(st_c(studentData), st_c(flood_pts), 5))
+
+studentData <- studentData %>%
+  mutate(Library_nn1 = nn_function(st_c(studentData), st_c(Col_Library), 1),
+         Library_nn2 = nn_function(st_c(studentData), st_c(Col_Library), 2),
+         Library_nn3 = nn_function(st_c(studentData), st_c(Col_Library), 3),
+         Library_nn4 = nn_function(st_c(studentData), st_c(Col_Library), 4),
+         Library_nn5 = nn_function(st_c(studentData), st_c(Col_Library), 5))
 ```
 
 # Methods
@@ -753,6 +770,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn1")) %>%
+  select(!starts_with("flood_pts")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
@@ -760,6 +778,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn2")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
@@ -767,6 +786,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
@@ -774,6 +794,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
@@ -781,6 +802,7 @@ bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max) %>%
   select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
@@ -790,7 +812,7 @@ bind_rows(
   ggplot(aes(mean_distance,price)) +
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    labs(title = "Nearest Neighbor Average and Price") +
+    labs(title = "Amenities Nearest Neighbor Average and Price") +
   facet_wrap(~nn) +
     plotTheme()
 ```
@@ -846,6 +868,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn1")) %>%
+  select(!starts_with("flood_pts")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
@@ -853,6 +876,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn2")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
@@ -860,6 +884,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
@@ -867,6 +892,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
@@ -874,6 +900,7 @@ A <- bind_rows(
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
   select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
@@ -889,7 +916,11 @@ studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
 Correlation matrix
 ```{r message=FALSE, warning=FALSE}
 numericVars <- studentData.training %>%
-                          select(!contains("nn"))
+                  select(!starts_with("grocery")) %>%
+                  select(!starts_with("restaurant")) %>%
+                  select(!starts_with("Education")) %>%
+                  select(!starts_with("Museums")) %>%
+                  select(!starts_with("Library"))
 
 numericVars <- 
   st_drop_geometry(numericVars) %>% 
@@ -918,13 +949,13 @@ rownames_to_column()
 A <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
-  pivot_longer(2:25) %>%
+  pivot_longer(2:30) %>%
   filter(value >= 0.3 & value <0.5)
 
 B <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
-  pivot_longer(2:25) %>%
+  pivot_longer(2:30) %>%
   filter(value >= -0.5 & value < -0.3)
 
 corlist <- bind_rows(A,B)
@@ -934,12 +965,13 @@ corlist <- corlist %>%
   arrange(desc(value))
 
 #all odd numbers between 1 and 80
-keep <- c(1:80)
+keep <- c(1:nrow(corlist))
 keep <- which(keep %% 2 == 1)
 
 corlist <- corlist %>%
              slice(keep) 
 
+# includes all correlated with price
 priceCor <- corlist %>%
   filter(rowname == "price")
 
