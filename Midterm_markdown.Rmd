@@ -198,12 +198,16 @@ acsTractsCol.2019.sf <- acsTractsCol.2019.sf %>%
 studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
   select(TractID, ends_with("_Quartile")) %>%
     st_drop_geometry(), by = "TractID")
+
+studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
+  select(TractID, ends_with("_age")) %>%
+    st_drop_geometry(), by = "TractID")
 ```
 
 
 
 
-```{r Race_don'trun, include=FALSE}
+```{r Race_don'trun, message=FALSE, warning=FALSE, include=FALSE}
 #once again did more work then needed, but the point is it works and this doesn't
 
 White <- acsTractsCol.2019.sf %>% 
@@ -236,7 +240,7 @@ OtherRace <- acsTractsCol.2019.sf %>%
 
 two_or_more <- acsTractsCol.2019.sf %>% 
   select(GEOID, two_or_more_pop) %>%
-  mutate(two_or_more _Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop))
+  mutate(two_or_more_Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop))
 
 two_other <- acsTractsCol.2019.sf %>% 
   select(GEOID, two_other_pop) %>%
@@ -313,68 +317,6 @@ two_or_more_exclude <- acsTractsCol.2019.sf %>%
 
 ```
 
-
-Census 2018 - already have 2019 data, here because we don't want to get rid of the code
-```{r tidycensus_2018, eval=FALSE, include=FALSE}
-
-#variables on frequency of Race
-Variables <- load_variables(2018,
-                            "acs5",
-                            cache = TRUE) %>%
-  mutate(Merge_name = paste(name,"E", sep ="")) %>%
-  filter(grepl("RACE", concept)) %>%
-  filter(!grepl("AGE", concept)) %>%
-  slice(1:10)
-
-#variable median age, men and women not by race
-A18 <- load_variables(2018,
-                    "acs5",
-                    cache = TRUE) %>%
-  mutate(Merge_name = paste(name,"E", sep ="")) %>%
-  filter(grepl("MEDIAN", concept)) %>%
-  slice(1:3)
-
-#Median Household Income
-B18 <- load_variables(2018,
-                    "acs5",
-                    cache = TRUE) %>%
-  mutate(Merge_name = paste(name,"E", sep ="")) %>%
-  filter(grepl("MEDIAN INCOME", concept)) %>%
-  slice(1)
-
-# Cost of living
-C18 <- load_variables(2018,
-                    "acs5",
-                    cache = TRUE) %>%
-  mutate(Merge_name = paste(name,"E", sep ="")) %>%
-  filter(grepl("COST", concept)) %>%
-  slice(1:19)
-
-Variables <- bind_rows(Variables, A18, B18, C18)
-
-acsTractsCol.2018.sf <- get_acs(geography = "tract",
-        year = 2018,
-        variables = Variables$name, 
-        state="Colorado",
-        county= c("Boulder"),
-        geometry=T,
-        output = "wide") %>% 
-  st_transform(CO_statePlaneCentral) %>%
-  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E"))) %>%
-  mutate(Year = 2018)
-
-ggplot() +
-  geom_sf(data = acsTractsCol.2018.sf)
-```
-
-#### Fixed Effect Census tracts 
-```{r}
-Census_tracts <- unique(acsTractsCol.2019.sf$GEOID)
-z <- st_intersection(studentData, acsTractsCol.2019.sf %>%
-                  filter(GEOID == Census_tracts[1]))
-```
-
-
 #### Boulder County School Districts
 ```{r school_districts, message=FALSE, warning=FALSE}
 #Unified School District
@@ -449,17 +391,6 @@ studentData <- studentData %>%
 # Change 
 studentData <- studentData %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
-
-zips <- c(80301:80305)
-zips <- as.character(zips)
-
-ggplot() +
-  geom_sf(data = acsZipsCol.2019.sf %>%
-            filter(zipcode %in% zips)) +
-  geom_sf(data = studentData) +
-  geom_sf(data = boulderCityLimits,
-          fill = "transparent",
-          border = 2)
 ```
 
 
@@ -507,14 +438,13 @@ studentData <- studentData %>%
 ggplot() +
   geom_sf(data = acsZipsCol.2019.sf) +
   labs(title = "Zip Tracts, Boulder County, Colorado")
-
 ```
 
 
 #### External factors
 
 Website available for data https://open-data.bouldercolorado.gov/ 
-```{r colorado_data, message=TRUE, warning=FALSE}
+```{r colorado_data, eval=FALSE, message=TRUE, warning=FALSE, include=FALSE}
 
 # # Locations of Rental Properties (by license)
 # ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
@@ -1001,7 +931,7 @@ st_drop_geometry(studentData) %>%
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
     facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    labs(title = "Nearest Neighbor 1 all Locations and Price") +
     plotTheme()
 ```
 
@@ -1020,7 +950,7 @@ st_drop_geometry(studentData) %>%
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
     facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    labs(title = "Nearest Neighbor 2 all Locations and Price") +
     plotTheme()
 ```
 
@@ -1038,7 +968,7 @@ st_drop_geometry(studentData) %>%
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
     facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    labs(title = "Nearest Neighbor 3 all Locations and Price") +
     plotTheme()
 ```
 
@@ -1056,7 +986,7 @@ st_drop_geometry(studentData) %>%
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
     facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    labs(title = "Nearest Neighbor 4 all Locations and Price") +
     plotTheme()
 ```
 
@@ -1074,7 +1004,7 @@ st_drop_geometry(studentData) %>%
     geom_point(size = .5) +
     geom_smooth(method = "lm", se = F, colour = "#FA7800") +
     facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
+    labs(title = "Nearest Neighbor 5 all Locations and Price") +
     plotTheme()
 ```
 
@@ -1169,6 +1099,33 @@ st_drop_geometry(studentData) %>%
   ggplot(aes(price, Zip)) +
   geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
 ```
+```{r}
+st_drop_geometry(studentData) %>%
+  select(price, White_Quartile ) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, White_Quartile )) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+
+st_drop_geometry(studentData) %>%
+  select(price, Black_Quartile ) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, Black_Quartile )) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+
+st_drop_geometry(studentData) %>%
+  select(price, Asian_Quartile ) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, Asian_Quartile )) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+
+st_drop_geometry(studentData) %>%
+  select(price, American_Indian_Quartile ) %>%
+  filter(price <= 5000000) %>%
+  ggplot(aes(price, American_Indian_Quartile )) +
+  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+```
+
+
 
 ```{r message=FALSE, warning=FALSE}
 studentData.training <- studentData %>%
@@ -1233,7 +1190,14 @@ numericVars <- studentData.training %>%
                   select(!starts_with("restaurant")) %>%
                   select(!starts_with("Education")) %>%
                   select(!starts_with("Museums")) %>%
-                  select(!starts_with("Library"))
+                  select(!starts_with("Library")) %>%
+                  select(!starts_with("recreation")) %>%
+                  select(!starts_with("pd")) %>%
+                  select(!starts_with("fd_emt")) %>%
+                  select(!starts_with("hospitals")) %>%
+                  select(!starts_with("malls")) %>%
+                  select(!starts_with("dispensaries")) %>%
+                  select(!starts_with("qualityCode"))
 
 numericVars <- 
   st_drop_geometry(numericVars) %>% 
@@ -1262,14 +1226,14 @@ rownames_to_column()
 A <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
-  pivot_longer(2:30) %>%
-  filter(value >= 0.3 & value <0.5)
+  pivot_longer(2:(ncol(res)-2)) %>%
+  filter(value >= 0.3 & value <0.6)
 
 B <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
-  pivot_longer(2:30) %>%
-  filter(value >= -0.5 & value < -0.3)
+  pivot_longer(2:(ncol(res)-2)) %>%
+  filter(value >= -0.6 & value < -0.3)
 
 corlist <- bind_rows(A,B)
 
@@ -1290,8 +1254,13 @@ priceCor <- corlist %>%
 
 keep <- priceCor$name
 
+categorical <- colnames(studentData %>%
+  select(where(is.factor)) %>%
+    st_drop_geometry())
+  
+
 # JC HAD TO REMOVE ZIP BECAUSE I DON'T HAVE THE WORKING ZIPCODES CODE RN - 10.20.2021@ 1230AM
-categorical <- c("District","price")
+categorical <- append(categorical, c("District","price","Zip"))
 # categorical <- c("Zip","District","price")
 keep <- append(keep, categorical)
 
@@ -1395,4 +1364,59 @@ ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
 
 # Appendix
 
+## CHALLENGE SET
 
+```{r message=FALSE, warning=FALSE}
+studentData.challenge <- studentData %>%
+    filter(toPredict == 1)
+
+A <- bind_rows(
+  st_drop_geometry(studentData.challenge) %>%
+  filter(price < max(studentData.challenge$price)) %>%
+  select(1,MUSA_ID, ends_with("nn1")) %>%
+  select(!starts_with("flood_pts")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  filter(price < max(studentData.challenge$price)) %>%
+  select(1,MUSA_ID, ends_with("nn2")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  filter(price < max(studentData.challenge$price)) %>%
+  select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  filter(price < max(studentData.challenge$price)) %>%
+  select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  filter(price < max(studentData.challenge$price)) %>%
+  select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(MUSA_ID) %>%
+  summarize(mean_distance = mean(Distance))
+
+studentData.challenge <- left_join(studentData.challenge, A, by = "MUSA_ID")
+
+studentData.challenge <- studentData.challenge %>%
+  mutate(SalePrice.Predict = predict(reg1, studentData.challenge))
+
+```
