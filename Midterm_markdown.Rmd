@@ -138,6 +138,8 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
          Mortgage4000_mortgage = Variables$Merge_name[33]) 
          
 
+acsTractsCol.2019.sf <- mutate(acsTractsCol.2019.sf, TractID = row_number())
+
   ggplot() +
   geom_sf(data = acsTractsCol.2019.sf)
 
@@ -157,15 +159,11 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
    labs(title = "Census Block Groups, Boulder County, Colorado")
 
  
- 
-studentData <- studentData %>%
-  mutate(
-    tracts = as.integer(st_intersects(geometry,acsTractsCol.2019.sf)))
-# Assign a school district to each home
+ # Assign a school district to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
 studentData <- studentData %>%
   mutate(
-    tracts = as.integer(st_intersects(geometry,acsTractsCol.2019.sf)))
+    TractID = as.integer(st_intersects(geometry,acsTractsCol.2019.sf)))
     #,
     #schoolDist_name = if_else(is.na(District), "", acsSchoolDistrctssCol.2019.sf$NAME[District])
 
@@ -196,9 +194,25 @@ acsTractsCol.2019.sf <- acsTractsCol.2019.sf %>%
          two_other_Quartile = q5(acsTractsCol.2019.sf$two_other_pop),
          two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
 
+
+studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
+  select(TractID, ends_with("_Quartile")) %>%
+    st_drop_geometry(), by = "TractID")
+```
+
+
+
+
+```{r Race_don'trun, include=FALSE}
+#once again did more work then needed, but the point is it works and this doesn't
+
 White <- acsTractsCol.2019.sf %>% 
   select(GEOID, White_pop) %>%
   mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop))
+
+f <- studentData %>%
+  mutate(
+    white = as.integer(st_intersects(geometry,White)))
 
 Black <- acsTractsCol.2019.sf %>% 
   select(GEOID, Black_pop) %>%
@@ -232,13 +246,7 @@ two_or_more_exclude <- acsTractsCol.2019.sf %>%
   select(GEOID, two_or_more_exclude_pop) %>%
   mutate(two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
 
-```
-
-
-
-
-```{r Race_don'trun, eval=FALSE, include=FALSE}
-# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries. 
+# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries.
 
 White <- acsTractsCol.2019.sf %>% 
   select(GEOID, White_pop) %>%
@@ -379,9 +387,12 @@ acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)"
   st_transform(CO_statePlaneCentral) %>%
   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
 
+
 school_districts <- st_overlaps(st_union(acsTractsCol.2019.sf), acsSchoolDistrctssCol.2019.sf)
 acsSchoolDistrctssCol.2019.sf <- acsSchoolDistrctssCol.2019.sf %>%
   slice(school_districts[[1]])
+
+acsSchoolDistrctssCol.2019.sf <- mutate(acsSchoolDistrctssCol.2019.sf, id = row_number())
 
 
 # Assign a school district to each home
@@ -399,6 +410,26 @@ studentData <- studentData %>%
 #          fill = "red") +
 #  geom_sf(data = st_union(acsTractsCol.2019.sf),
 #         fill = "transparent")
+```
+
+
+```{r}
+# I'm trying to check how the distrcit groups are made, and it looks like they are in order from the rows they were assigned. 
+
+studentData %>%
+  st_drop_geometry() %>%
+  group_by(District) %>%
+  summarize(Freq = n())
+
+ggplot() +
+  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
+          aes(fill = id)) +
+  geom_sf(data = studentData %>%
+            filter(District == "District1"),
+          color = "Red") +
+  geom_sf(data = studentData %>%
+            filter(District == "District4"),
+          color = "Black")
 ```
 
 
