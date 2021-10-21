@@ -393,6 +393,7 @@ studentData <- studentData %>%
 ```
 
 #### Boulder County Zip codes
+
 ```{r Zip_codes, warning=FALSE}
 
 #Zip Code
@@ -746,90 +747,90 @@ st_c <- st_coordinates
 
 ## restaurante NN
 studentData <- studentData %>%
-  mutate(grocery_nn1 = nn_function(st_c(studentData), st_c(Grocery_Store), 1),
-         grocery_nn2 = nn_function(st_c(studentData), st_c(Grocery_Store), 2),
-         grocery_nn3 = nn_function(st_c(studentData), st_c(Grocery_Store), 3),
-         grocery_nn4 = nn_function(st_c(studentData), st_c(Grocery_Store), 4),
-         grocery_nn5 = nn_function(st_c(studentData), st_c(Grocery_Store), 5))
+  mutate(amenities_grocery_nn1 = nn_function(st_c(studentData), st_c(Grocery_Store), 1),
+         amenities_grocery_nn2 = nn_function(st_c(studentData), st_c(Grocery_Store), 2),
+         amenities_grocery_nn3 = nn_function(st_c(studentData), st_c(Grocery_Store), 3),
+         amenities_grocery_nn4 = nn_function(st_c(studentData), st_c(Grocery_Store), 4),
+         amenities_grocery_nn5 = nn_function(st_c(studentData), st_c(Grocery_Store), 5))
 
 studentData <- studentData %>%
-  mutate(restaurant_nn1 = nn_function(st_c(studentData), st_c(Restaurants), 1),
-         restaurant_nn2 = nn_function(st_c(studentData), st_c(Restaurants), 2),
-         restaurant_nn3 = nn_function(st_c(studentData), st_c(Restaurants), 3),
-         restaurant_nn4 = nn_function(st_c(studentData), st_c(Restaurants), 4),
-         restaurant_nn5 = nn_function(st_c(studentData), st_c(Restaurants), 5))
+  mutate(amenities_restaurant_nn1 = nn_function(st_c(studentData), st_c(Restaurants), 1),
+         amenities_restaurant_nn2 = nn_function(st_c(studentData), st_c(Restaurants), 2),
+         amenities_restaurant_nn3 = nn_function(st_c(studentData), st_c(Restaurants), 3),
+         amenities_restaurant_nn4 = nn_function(st_c(studentData), st_c(Restaurants), 4),
+         amenities_restaurant_nn5 = nn_function(st_c(studentData), st_c(Restaurants), 5))
 
 studentData <- studentData %>%
-  mutate(Education_nn1 = nn_function(st_c(studentData), st_c(Education), 1),
-         Education_nn2 = nn_function(st_c(studentData), st_c(Education), 2),
-         Education_nn3 = nn_function(st_c(studentData), st_c(Education), 3),
-         Education_nn4 = nn_function(st_c(studentData), st_c(Education), 4),
-         Education_nn5 = nn_function(st_c(studentData), st_c(Education), 5))
+  mutate(Edu_Education_nn1 = nn_function(st_c(studentData), st_c(Education), 1),
+         Edu_Education_nn2 = nn_function(st_c(studentData), st_c(Education), 2),
+         Edu_Education_nn3 = nn_function(st_c(studentData), st_c(Education), 3),
+         Edu_Education_nn4 = nn_function(st_c(studentData), st_c(Education), 4),
+         Edu_Education_nn5 = nn_function(st_c(studentData), st_c(Education), 5))
 
 studentData <- studentData %>%
-  mutate(Museums_nn1 = nn_function(st_c(studentData), st_c(Museums), 1),
-         Museums_nn2 = nn_function(st_c(studentData), st_c(Museums), 2),
-         Museums_nn3 = nn_function(st_c(studentData), st_c(Museums), 3),
-         Museums_nn4 = nn_function(st_c(studentData), st_c(Museums), 4),
-         Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
+  mutate(Edu_Museums_nn1 = nn_function(st_c(studentData), st_c(Museums), 1),
+         Edu_Museums_nn2 = nn_function(st_c(studentData), st_c(Museums), 2),
+         Edu_Museums_nn3 = nn_function(st_c(studentData), st_c(Museums), 3),
+         Edu_Museums_nn4 = nn_function(st_c(studentData), st_c(Museums), 4),
+         Edu_Museums_nn5 = nn_function(st_c(studentData), st_c(Museums), 5))
 
 
 studentData <- studentData %>%
-  mutate(floodpts_nn1 = nn_function(st_c(studentData), st_c(flood_pts), 1),
+  mutate(SS_floodpts_nn1 = nn_function(st_c(studentData), st_c(flood_pts), 1),
          floodpts_nn2 = nn_function(st_c(studentData), st_c(flood_pts), 2),
          floodpts_nn3 = nn_function(st_c(studentData), st_c(flood_pts), 3),
          floodpts_nn4 = nn_function(st_c(studentData), st_c(flood_pts), 4),
          floodpts_nn5 = nn_function(st_c(studentData), st_c(flood_pts), 5))
 
 studentData <- studentData %>%
-  mutate(Library_nn1 = nn_function(st_c(studentData), st_c(Col_Library), 1),
-         Library_nn2 = nn_function(st_c(studentData), st_c(Col_Library), 2),
-         Library_nn3 = nn_function(st_c(studentData), st_c(Col_Library), 3),
-         Library_nn4 = nn_function(st_c(studentData), st_c(Col_Library), 4),
-         Library_nn5 = nn_function(st_c(studentData), st_c(Col_Library), 5))
+  mutate(Edu_Library_nn1 = nn_function(st_c(studentData), st_c(Col_Library), 1),
+         Edu_Library_nn2 = nn_function(st_c(studentData), st_c(Col_Library), 2),
+         Edu_Library_nn3 = nn_function(st_c(studentData), st_c(Col_Library), 3),
+         Edu_Library_nn4 = nn_function(st_c(studentData), st_c(Col_Library), 4),
+         Edu_Library_nn5 = nn_function(st_c(studentData), st_c(Col_Library), 5))
 
 
 studentData <- studentData %>%
-  mutate(recreation_nn1 = nn_function(st_c(studentData), st_c(Recreation), 1),
-         recreation_nn2 = nn_function(st_c(studentData), st_c(Recreation), 2),
-         recreation_nn3 = nn_function(st_c(studentData), st_c(Recreation), 3),
-         recreation_nn4 = nn_function(st_c(studentData), st_c(Recreation), 4),
-         recreation_nn5 = nn_function(st_c(studentData), st_c(Recreation), 5))
+  mutate(amenities_recreation_nn1 = nn_function(st_c(studentData), st_c(Recreation), 1),
+         amenities_recreation_nn2 = nn_function(st_c(studentData), st_c(Recreation), 2),
+         amenities_recreation_nn3 = nn_function(st_c(studentData), st_c(Recreation), 3),
+         amenities_recreation_nn4 = nn_function(st_c(studentData), st_c(Recreation), 4),
+         amenities_recreation_nn5 = nn_function(st_c(studentData), st_c(Recreation), 5))
 
 studentData <- studentData %>%
-  mutate(pd_nn1 = nn_function(st_c(studentData), st_c(PoliceDepartments), 1),
-         pd_nn2 = nn_function(st_c(studentData), st_c(PoliceDepartments), 2),
-         pd_nn3 = nn_function(st_c(studentData), st_c(PoliceDepartments), 3),
-         pd_nn4 = nn_function(st_c(studentData), st_c(PoliceDepartments), 4),
-         pd_nn5 = nn_function(st_c(studentData), st_c(PoliceDepartments), 5))
+  mutate(PS_pd_nn1 = nn_function(st_c(studentData), st_c(PoliceDepartments), 1),
+         PS_pd_nn2 = nn_function(st_c(studentData), st_c(PoliceDepartments), 2),
+         PS_pd_nn3 = nn_function(st_c(studentData), st_c(PoliceDepartments), 3),
+         PS_pd_nn4 = nn_function(st_c(studentData), st_c(PoliceDepartments), 4),
+         PS_pd_nn5 = nn_function(st_c(studentData), st_c(PoliceDepartments), 5))
 
 studentData <- studentData %>%
-  mutate(fd_emt_nn1 = nn_function(st_c(studentData), st_c(FireandEMT), 1),
-         fd_emt_nn2 = nn_function(st_c(studentData), st_c(FireandEMT), 2),
-         fd_emt_nn3 = nn_function(st_c(studentData), st_c(FireandEMT), 3),
-         fd_emt_nn4 = nn_function(st_c(studentData), st_c(FireandEMT), 4),
-         fd_emt_nn5 = nn_function(st_c(studentData), st_c(FireandEMT), 5))
+  mutate(PS_fd_emt_nn1 = nn_function(st_c(studentData), st_c(FireandEMT), 1),
+         PS_fd_emt_nn2 = nn_function(st_c(studentData), st_c(FireandEMT), 2),
+         PS_fd_emt_nn3 = nn_function(st_c(studentData), st_c(FireandEMT), 3),
+         PS_fd_emt_nn4 = nn_function(st_c(studentData), st_c(FireandEMT), 4),
+         PS_fd_emt_nn5 = nn_function(st_c(studentData), st_c(FireandEMT), 5))
 
 studentData <- studentData %>%
-  mutate(hospitals_nn1 = nn_function(st_c(studentData), st_c(Hospitals), 1),
-         hospitals_nn2 = nn_function(st_c(studentData), st_c(Hospitals), 2),
-         hospitals_nn3 = nn_function(st_c(studentData), st_c(Hospitals), 3),
-         hospitals_nn4 = nn_function(st_c(studentData), st_c(Hospitals), 4),
-         hospitals_nn5 = nn_function(st_c(studentData), st_c(Hospitals), 5))
+  mutate(PS_hospitals_nn1 = nn_function(st_c(studentData), st_c(Hospitals), 1),
+         PS_hospitals_nn2 = nn_function(st_c(studentData), st_c(Hospitals), 2),
+         PS_hospitals_nn3 = nn_function(st_c(studentData), st_c(Hospitals), 3),
+         PS_hospitals_nn4 = nn_function(st_c(studentData), st_c(Hospitals), 4),
+         PS_hospitals_nn5 = nn_function(st_c(studentData), st_c(Hospitals), 5))
 
 studentData <- studentData %>%
-  mutate(malls_nn1 = nn_function(st_c(studentData), st_c(ShoppingMalls), 1),
-         malls_nn2 = nn_function(st_c(studentData), st_c(ShoppingMalls), 2),
-         malls_nn3 = nn_function(st_c(studentData), st_c(ShoppingMalls), 3),
-         malls_nn4 = nn_function(st_c(studentData), st_c(ShoppingMalls), 4),
-         malls_nn5 = nn_function(st_c(studentData), st_c(ShoppingMalls), 5))
+  mutate(amenities_malls_nn1 = nn_function(st_c(studentData), st_c(ShoppingMalls), 1),
+         amenities_malls_nn2 = nn_function(st_c(studentData), st_c(ShoppingMalls), 2),
+         amenities_malls_nn3 = nn_function(st_c(studentData), st_c(ShoppingMalls), 3),
+         amenities_malls_nn4 = nn_function(st_c(studentData), st_c(ShoppingMalls), 4),
+         amenities_malls_nn5 = nn_function(st_c(studentData), st_c(ShoppingMalls), 5))
 
 studentData <- studentData %>%
-  mutate(dispensaries_nn1 = nn_function(st_c(studentData), st_c(Dispensaries), 1),
-         dispensaries_nn2 = nn_function(st_c(studentData), st_c(Dispensaries), 2),
-         dispensaries_nn3 = nn_function(st_c(studentData), st_c(Dispensaries), 3),
-         dispensaries_nn4 = nn_function(st_c(studentData), st_c(Dispensaries), 4),
-         dispensaries_nn5 = nn_function(st_c(studentData), st_c(Dispensaries), 5))
+  mutate(amenities_dispensaries_nn1 = nn_function(st_c(studentData), st_c(Dispensaries), 1),
+         amenities_dispensaries_nn2 = nn_function(st_c(studentData), st_c(Dispensaries), 2),
+         amenities_dispensaries_nn3 = nn_function(st_c(studentData), st_c(Dispensaries), 3),
+         amenities_dispensaries_nn4 = nn_function(st_c(studentData), st_c(Dispensaries), 4),
+         amenities_dispensaries_nn5 = nn_function(st_c(studentData), st_c(Dispensaries), 5))
 ```
 
 # Methods
@@ -878,8 +879,8 @@ max <- max(
 st_drop_geometry(studentData) %>%
   filter(toPredict == 0) %>%
   filter(price < max) %>%
-  select(1,MUSA_ID,starts_with("grocery")) %>%
-  pivot_longer(cols = starts_with("grocery"), 
+  select(1,MUSA_ID,contains("grocery")) %>%
+  pivot_longer(cols = contains("grocery"), 
                names_to = "Nearest_Neighbor",
                values_to = "Distance") %>%
   group_by(Nearest_Neighbor, price) %>%
@@ -896,8 +897,8 @@ st_drop_geometry(studentData) %>%
 ```{r NN_Restaurant_plots, echo=FALSE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   filter(price < max) %>%
-  select(1,MUSA_ID,starts_with("restaurant")) %>%
-  pivot_longer(cols = starts_with("restaurant"), 
+  select(1,MUSA_ID,contains("restaurant")) %>%
+  pivot_longer(cols = contains("restaurant"), 
                names_to = "Nearest_Neighbor",
                values_to = "Distance") %>%
   group_by(Nearest_Neighbor, price) %>%
@@ -914,8 +915,8 @@ st_drop_geometry(studentData) %>%
 
 st_drop_geometry(studentData) %>%
   filter(price < max) %>%
-  select(1,MUSA_ID,starts_with("Education")) %>%
-  pivot_longer(cols = starts_with("Education"), 
+  select(1,MUSA_ID,contains("Education")) %>%
+  pivot_longer(cols = contains("Education"), 
                names_to = "Nearest_Neighbor",
                values_to = "Distance") %>%
   group_by(Nearest_Neighbor, price) %>%
@@ -932,8 +933,8 @@ st_drop_geometry(studentData) %>%
 
 st_drop_geometry(studentData) %>%
   filter(price < max) %>%
-  select(1,MUSA_ID,starts_with("Museums")) %>%
-  pivot_longer(cols = starts_with("Museums"), 
+  select(1,MUSA_ID,contains("Museums")) %>%
+  pivot_longer(cols = contains("Museums"), 
                names_to = "Nearest_Neighbor",
                values_to = "Distance") %>%
   group_by(Nearest_Neighbor, price) %>%
@@ -1165,17 +1166,17 @@ studentData.challenge <- studentData %>%
     filter(toPredict == 1)
 
 A <- bind_rows(
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
-  select(1,MUSA_ID, ends_with("nn1")) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max(studentData$price)) %>%
+  select(1,MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
                values_to = "Distance"),
-  st_drop_geometry(studentData.training) %>%
-  filter(price < max(studentData.training$price)) %>%
-  select(1,MUSA_ID, ends_with("nn2")) %>%
+  st_drop_geometry(studentData) %>%
+  filter(price < max(studentData$price)) %>%
+  select(1,MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
@@ -1183,7 +1184,7 @@ A <- bind_rows(
                values_to = "Distance"),
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
-  select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(1,MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
@@ -1191,7 +1192,7 @@ A <- bind_rows(
                values_to = "Distance"),
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
-  select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(1,MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
@@ -1199,14 +1200,106 @@ A <- bind_rows(
                values_to = "Distance"),
   st_drop_geometry(studentData.training) %>%
   filter(price < max(studentData.training$price)) %>%
-  select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(1,MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
                values_to = "Distance")) %>%
   group_by(MUSA_ID) %>%
-  summarize(mean_distance = mean(Distance))
+  summarize(Edu_mean_distance = mean(Distance))
+
+studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
+
+A <- bind_rows(
+  st_drop_geometry(studentData) %>%
+  filter(price < max(studentData$price)) %>%
+  select(1,MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData) %>%
+  filter(price < max(studentData$price)) %>%
+  select(1,MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(MUSA_ID) %>%
+  summarize(amenities_mean_distance = mean(Distance))
+
+studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
+
+A <- bind_rows(
+  st_drop_geometry(studentData) %>%
+  filter(price < max(studentData$price)) %>%
+  select(1,MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData) %>%
+  filter(price < max(studentData$price)) %>%
+  select(1,MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.training) %>%
+  filter(price < max(studentData.training$price)) %>%
+  select(1,MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(MUSA_ID) %>%
+  summarize(PS_mean_distance = mean(Distance))
 
 studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
 
@@ -1216,17 +1309,17 @@ studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
 Correlation matrix
 ```{r message=FALSE, warning=FALSE}
 numericVars <- studentData.training %>%
-                  select(!starts_with("grocery")) %>%
-                  select(!starts_with("restaurant")) %>%
-                  select(!starts_with("Education")) %>%
-                  select(!starts_with("Museums")) %>%
-                  select(!starts_with("Library")) %>%
-                  select(!starts_with("recreation")) %>%
-                  select(!starts_with("pd")) %>%
-                  select(!starts_with("fd_emt")) %>%
-                  select(!starts_with("hospitals")) %>%
-                  select(!starts_with("malls")) %>%
-                  select(!starts_with("dispensaries")) %>%
+                  select(!contains("grocery")) %>%
+                  select(!contains("restaurant")) %>%
+                  select(!contains("Education")) %>%
+                  select(!contains("Museums")) %>%
+                  select(!contains("Library")) %>%
+                  select(!contains("recreation")) %>%
+                  select(!contains("pd")) %>%
+                  select(!contains("fd_emt")) %>%
+                  select(!contains("hospitals")) %>%
+                  select(!contains("malls")) %>%
+                  select(!contains("dispensaries")) %>%
                   select(!starts_with("qualityCode"))
 
 numericVars <- 
@@ -1234,7 +1327,10 @@ numericVars <-
   select(where(is.numeric)) %>%
   na.omit()
 
-numericVars$mean_distance <- as.integer(numericVars$mean_distance)
+numericVars$Edu_mean_distance <- as.integer(numericVars$Edu_mean_distance)
+numericVars$amenities_mean_distance <- as.integer(numericVars$amenities_mean_distance)
+numericVars$PS_mean_distance <- as.integer(numericVars$PS_mean_distance)
+
 
 numericVars <- numericVars %>%
   na.omit()
@@ -1402,51 +1498,127 @@ studentData.challenge <- studentData %>%
 
 A <- bind_rows(
   st_drop_geometry(studentData.challenge) %>%
-  filter(price < max(studentData.challenge$price)) %>%
-  select(1,MUSA_ID, ends_with("nn1")) %>%
+  select(MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
   mutate(nn = "nn1") %>%
   pivot_longer(cols = ends_with("nn1"), 
                names_to = "Amenities",
                values_to = "Distance"),
   st_drop_geometry(studentData.challenge) %>%
-  filter(price < max(studentData.challenge$price)) %>%
-  select(1,MUSA_ID, ends_with("nn2")) %>%
+  select(MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn2") %>%
   pivot_longer(cols = ends_with("nn2"), 
                names_to = "Amenities",
                values_to = "Distance"),
   st_drop_geometry(studentData.challenge) %>%
-  filter(price < max(studentData.challenge$price)) %>%
-  select(1,MUSA_ID, ends_with("nn3")) %>%
+  select(MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn3") %>%
   pivot_longer(cols = ends_with("nn3"), 
                names_to = "Amenities",
                values_to = "Distance"),
   st_drop_geometry(studentData.challenge) %>%
-  filter(price < max(studentData.challenge$price)) %>%
-  select(1,MUSA_ID, ends_with("nn4")) %>%
+  select(MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn4") %>%
   pivot_longer(cols = ends_with("nn4"), 
                names_to = "Amenities",
                values_to = "Distance"),
   st_drop_geometry(studentData.challenge) %>%
-  filter(price < max(studentData.challenge$price)) %>%
-  select(1,MUSA_ID, ends_with("nn5")) %>%
+  select(MUSA_ID, starts_with("Edu")) %>%
   select(!starts_with("flood_pts")) %>%
       mutate(nn = "nn5") %>%
   pivot_longer(cols = ends_with("nn5"), 
                names_to = "Amenities",
                values_to = "Distance")) %>%
   group_by(MUSA_ID) %>%
-  summarize(mean_distance = mean(Distance))
+  summarize(Edu_mean_distance = mean(Distance))
+
+studentData.challenge <- left_join(studentData.challenge, A, by = "MUSA_ID")
+
+A <- bind_rows(
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData) %>%
+  select(MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("amenities")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(MUSA_ID) %>%
+  summarize(amenities_mean_distance = mean(Distance))
+
+studentData.challenge <- left_join(studentData.challenge, A, by = "MUSA_ID")
+
+A <- bind_rows(
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+  mutate(nn = "nn1") %>%
+  pivot_longer(cols = ends_with("nn1"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData) %>%
+  select(MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn2") %>%
+  pivot_longer(cols = ends_with("nn2"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn3") %>%
+  pivot_longer(cols = ends_with("nn3"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn4") %>%
+  pivot_longer(cols = ends_with("nn4"), 
+               names_to = "Amenities",
+               values_to = "Distance"),
+  st_drop_geometry(studentData.challenge) %>%
+  select(MUSA_ID, starts_with("PS")) %>%
+  select(!starts_with("flood_pts")) %>%
+      mutate(nn = "nn5") %>%
+  pivot_longer(cols = ends_with("nn5"), 
+               names_to = "Amenities",
+               values_to = "Distance")) %>%
+  group_by(MUSA_ID) %>%
+  summarize(PS_mean_distance = mean(Distance))
 
 studentData.challenge <- left_join(studentData.challenge, A, by = "MUSA_ID")
 
 studentData.challenge <- studentData.challenge %>%
-  mutate(SalePrice.Predict = predict(reg1, studentData.challenge))
-
+  mutate(SalePrice.Predict = predict(reg.training, studentData.challenge))
 ```
