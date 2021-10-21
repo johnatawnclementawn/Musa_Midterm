@@ -53,7 +53,7 @@ studentData$pricePerSF <- as.integer(studentData$pricePerSF)
 
 
 #### Census 2019
-The first fixed effect variables that we looked at was census tract. Although, we are  
+The first fixed effect variables that we looked at was census tract. With the census tract data we pulled variables on Race and Median age. Race was important as a fixed effect to predict housing prices. 
 ```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE}
 
 #variables on frequency of Race
@@ -173,15 +173,9 @@ studentData <- studentData %>%
 ## Birds of a feather flock together
 
 ### Census Tracts by Race
-
-q3 is the census tracts that have a median amount of white people. As a fixed effect, this would say for census tracts with the median amount of white people, what does the price look like?
-q4_5 is census tracts that have above the median amount of white people. 
-q1_3 is census tracts that have less then the median amount of white people
-
-This disadvantage to using fixed effects is that they have to be binary, either they do or do not contain something, so in the case of race I used below the median, above the median and median as binaried functions. 
+To utilize the census tracts these data were transformed into quartiles. The census tracts would represent the frequency of racial populations in that area. For example, for `White_quartile` column would predict for a specific quartile is the price, higher or lower. The same can be applied to other racial categories as well. 
 
 ```{r eval=FALSE, include=FALSE}
-# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries. 
 
 acsTractsCol.2019.sf <- acsTractsCol.2019.sf %>% 
   mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop),
@@ -207,8 +201,17 @@ studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
 
 
 
-```{r Race_don'trun, message=FALSE, warning=FALSE, include=FALSE}
+```{r Race_dontrun, message=FALSE, warning=FALSE, include=FALSE}
 #once again did more work then needed, but the point is it works and this doesn't
+
+# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries. 
+
+
+#q3 is the census tracts that have a median amount of white people. As a fixed effect, this would say for census tracts with the median amount of white people, what does the price look like?
+#q4_5 is census tracts that have above the median amount of white people. 
+#q1_3 is census tracts that have less then the median amount of white people
+
+#This disadvantage to using fixed effects is that they have to be binary, either they do or do not contain something, so in the case of race I used below the median, above the median and median as binaried functions. 
 
 White <- acsTractsCol.2019.sf %>% 
   select(GEOID, White_pop) %>%
@@ -318,6 +321,9 @@ two_or_more_exclude <- acsTractsCol.2019.sf %>%
 ```
 
 #### Boulder County School Districts
+
+Another fixed effect that was included in the analysis was school distrct. The assumption that is being made with school district is that potential homebuyers value general education and they believe that education will increase their own, or their children, human capital. School district data was also pulled from the American Community Survey data and overlapped by census tracts to ensure all the correct locations were used. Each point from the dataset was then assigned to a particular district.
+
 ```{r school_districts, message=FALSE, warning=FALSE}
 #Unified School District
 acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
@@ -375,7 +381,9 @@ ggplot() +
 ```
 
 #### Boulder City Fixed Effect
-```{r city_Limits}
+
+Lastly we thought it would be important to consider which points were within Boulder City limits. These points were engineered to consider if they were or were not within the city limits. 
+```{r city_Limits1}
 boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
   st_transform(st_crs(acsTractsCol.2019.sf)) %>%
   mutate(inCity = 1)
@@ -393,6 +401,8 @@ studentData <- studentData %>%
 ```
 
 #### Boulder County Zip codes
+
+Most people are not aware of what census tract they live in; however, census tract data provides more detail then zip codes do. As such we thought it was important to analyze the prices in each zip code. Zipcodes are also strong predictors of future economic outcomes.  
 
 ```{r Zip_codes, warning=FALSE}
 
