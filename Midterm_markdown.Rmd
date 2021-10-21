@@ -1456,12 +1456,25 @@ coords.test <-  st_coordinates(test)
 
 neighborList.test <- knn2nb(knearneigh(coords.test, 5))
 
-
 spatialWeights.test <- nb2listw(neighborList.test, style="W")
- 
+
 test %>% 
   mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
-  ggplot(aes(lagPriceError, SalePrice.Error))
+  ggplot(aes(lagPriceError, SalePrice.Error)) +
+  geom_point(color = "orange") +
+  geom_abline(color = "dark green",
+              size = 1) + 
+  labs(title = "Error as a function of the spatial lag of price") +
+  plotTheme()
+
+test %>% 
+  mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
+  ggplot(aes(lagPriceError, SalePrice.Error)) +
+  geom_point(color = "orange") +
+  geom_abline(color = "dark green",
+              size = 1) + 
+  labs(title = "Error as a function of the spatial lag of price") +
+  plotTheme()
 ```
 
 
