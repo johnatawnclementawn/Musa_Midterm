@@ -29,7 +29,7 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
   The intent of this report is to use local intelligence to improve zillow's predictive model utilizing only OLS regression. What we did to improve the model was include [INSERT VARAIBLES HERE].
 
 # Data
-  We were first given a dataset that included housing prices and the points where they were located. From here, we decided to organize our data between fixed-effect and nearest neighbors. Fixed-effects take into consideration points that lie within a designated boundary. For example, all houses in a particular zip code would undergo a similar fixed-effect because they all inhabit that zip code. In contrast, the nearest neighbor calculates the distance between two points and takes the average of those distances by nearest neighbor value [EXPAND ON THIS LATER]. 
+  We were first given a dataset that included housing prices and the points where they were located. From here, we decided to organize our data between fixed-effect and nearest neighbors. Fixed-effects take into consideration points that lie within a designated boundary. For example, all houses in a particular zip code would undergo a similar fixed-effect because they all inhabit that zip code. In contrast, the nearest neighbor calculates the distance between two points and takes the average of those distances by nearest neighbor value.
 
 ## Home prices dataset
 ```{r housedata, message=FALSE, warning=FALSE, include=FALSE, results='hold', results = 'hide'}
@@ -56,8 +56,11 @@ studentData$pricePerSF <- as.integer(studentData$pricePerSF)
 
 ## Fixed Effects 
 
+The fixed effects data that we selected include the 2019 census tract data, bounder county school districts, Boulder City limits and Boulder county zip codes. These are all fixed effects as the represent spaces that the points inhabit and are shaped by. SOme of these fixed effects will be engineered to provide more in depth analysis
+
 ### Census 2019
-The first fixed effect variables that we looked at was census tract. With the census tract data we pulled variables on Race and Median age. Race was important as a fixed effect to predict housing prices. 
+The first fixed effect variables that we looked at was census tract. With the census tract data we pulled variables on Race and Median age. Race was important as a fixed effect to predict housing price, people with similar racial categories often move into similar spaces. Age was important, because people may be interested moving into areas with similarly aged people. 
+
 ```{r tidycensus_2019, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
 
 #variables on frequency of Race
@@ -173,10 +176,6 @@ studentData <- studentData %>%
 
 ```
 
-### Boulder County School Districts
-
-Another fixed effect that was included in the analysis was school distrct. The assumption that is being made with school district is that potential homebuyers value general education and they believe that education will increase their own, or their children, human capital. School district data was also pulled from the American Community Survey data and overlapped by census tracts to ensure all the correct locations were used. Each point from the dataset was then assigned to a particular district.
-
 ### Boulder City Fixed Effect
 
 Lastly we thought it would be important to consider which points were within Boulder City limits. These points were engineered to consider if they were or were not within the city limits. 
@@ -196,6 +195,10 @@ studentData <- studentData %>%
 studentData <- studentData %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
 ```
+
+### Boulder County School Districts
+
+Another fixed effect that was included in the analysis was school distrct. The assumption that is being made with school district is that potential homebuyers value general education and they believe that education will increase their own, or their children, human capital. School district data was also pulled from the American Community Survey data and overlapped by census tracts to ensure all the correct locations were used. Each point from the dataset was then assigned to a particular district.
 
 ```{r school_districts, message=FALSE, warning=FALSE, include=FALSE}
 #Unified School District
@@ -246,7 +249,7 @@ acsZipsCol.2019.sf <- get_acs(geography = "zcta",
         geometry=T,
         output = "wide") %>% 
   st_transform(CO_statePlaneCentral) %>%
-  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+  dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E"))) 
 
 
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
@@ -282,37 +285,8 @@ ggplot() +
   labs(title = "Zip Tracts, Boulder County, Colorado")
 ```
 
-### Boulder City Fixed Effect
-
-```{r city_Limits, eval=FALSE, include=FALSE, results='hide'}
-boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
-  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
-  mutate(inCity = 1)
-
-# Determine if a house is within the city or not - used for cases in which only city data is available
-studentData <- studentData %>%
-  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
-
-studentData <- studentData %>%
-  mutate(withinCity = replace_na(withinCity,"0"))
-
-# Change 
-#studentData <- studentData %>%
-#  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
-
-#zips <- c(80301:80305)
-#zips <- as.character(zips)
-
-#ggplot() +
-#  geom_sf(data = acsZipsCol.2019.sf %>%
-#            filter(GEOID %in% zips)) +
-#  geom_sf(data = studentData) +
-#  geom_sf(data = boulderCityLimits,
-#          fill = "transparent",
-#          border = 2)
-```
-
 ## Point Data
+Although it is possible to pull buffered data to analyze data by fixed effects, the fixed effect data is often categorical or binaried and does not provide the nuance in building a model. To rememdy this, we selected found point data on floods, Amernities, Public Services and Education resources nearby. The benefit of this point data is that numeric data can be used in the model to provide more detail.
 
 ### Flood Data
 Other factors that were considered in this analysis was flood plain data. Flood plain data takes into consideration how close the nearest flood point is. [JC]
@@ -352,38 +326,14 @@ ggplot() +
 
 ```
 
-# Feature Engineering
+### Amenities
+Amenity data was selected from Data Axle, and includes institutions such as groceries, restaurants, shopping mapps, and recreational institutions. We thought that these institutions are not necessarily pubilc services, but provide benefits to the communities lifestyle.
 
-Includes point data where nearest neighbor was calculated
+### Public Services
+Public services include hospitals, police departments, and fire departments. Although hospitals may not necessarily be public not-for-profit institutions, we thought it was important to include because of the impact that they have on public health and wellbeing of the community.
 
-### Census Tracts by Race
-To utilize the census tracts these data were transformed into quartiles. The census tracts would represent the frequency of racial populations in that area. For example, for `White_quartile` column would predict for a specific quartile is the price, higher or lower. The same can be applied to other racial categories as well. 
-
-```{r include=FALSE, results='hold'}
-
-acsTractsCol.2019.sf <- acsTractsCol.2019.sf %>% 
-  mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop),
-         Black_Quartile = q5(acsTractsCol.2019.sf$Black_pop),
-         Asian_Quartile = q5(acsTractsCol.2019.sf$Asian_pop),
-         American_Indian_Quartile = q5(acsTractsCol.2019.sf$American_Indian_pop),
-         Hawiian_PI_Quartile = q5(acsTractsCol.2019.sf$Hawiian_PI_pop),
-         OtherRace_Quartile = q5(acsTractsCol.2019.sf$OtherRace_pop),
-         two_or_more_Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop),
-         two_other_Quartile = q5(acsTractsCol.2019.sf$two_other_pop),
-         two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
-
-
-studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
-  select(TractID, ends_with("_Quartile")) %>%
-    st_drop_geometry(), by = "TractID")
-
-studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
-  select(TractID, ends_with("_age")) %>%
-    st_drop_geometry(), by = "TractID")
-```
-
-
-We also brought in data about locations of libraries.
+### Education
+Educational variables included variables that provide educational benefits to the community. This primarily include public and private schools, neighborhoods and universities. There is no weighted system that distinguishes the different types of educational institution in this dataset. 
 
 ```{r} 
 # # Locations of Zoning districts
@@ -421,14 +371,8 @@ ggplot() +
   labs(title = "library")
 
 ```
-
-## Feature Engineering
-
-
-#### Buffers
-
-Data from DataAxle was brought in to show the nearest grocery stores, restaurants, educational institutions, museums, recreational institutions, police departments, fire departments, medical facilitaties, shopping malls, and dispensaries. These were separated into three categories, 
-
+ 
+ 
 ```{r, results='hold'}
 # Grocery Stores from Data Axle
 Grocery_Store <- read.csv("DataAxle_GroceryStores.csv") %>%
@@ -555,8 +499,44 @@ Buffer_Dispensaries <- st_union(st_buffer(Dispensaries, 5280) %>%
 
 
 
+``` 
+ 
+# Feature Engineering
+
+Once all the data was imported, the data was then transformed into a variety of ways to understand fixed effects and geographic distances.
+
+### Census Tracts by Race
+To utilize the census tracts these data were transformed into quartiles. The census tracts would represent the frequency of racial populations in that area. For example, for `White_quartile` column would predict for a specific quartile is the price, higher or lower. The same can be applied to other racial categories as well. 
+
+```{r include=FALSE, results='hold'}
+
+acsTractsCol.2019.sf <- acsTractsCol.2019.sf %>% 
+  mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop),
+         Black_Quartile = q5(acsTractsCol.2019.sf$Black_pop),
+         Asian_Quartile = q5(acsTractsCol.2019.sf$Asian_pop),
+         American_Indian_Quartile = q5(acsTractsCol.2019.sf$American_Indian_pop),
+         Hawiian_PI_Quartile = q5(acsTractsCol.2019.sf$Hawiian_PI_pop),
+         OtherRace_Quartile = q5(acsTractsCol.2019.sf$OtherRace_pop),
+         two_or_more_Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop),
+         two_other_Quartile = q5(acsTractsCol.2019.sf$two_other_pop),
+         two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
+
+
+studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
+  select(TractID, ends_with("_Quartile")) %>%
+    st_drop_geometry(), by = "TractID")
+
+studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
+  select(TractID, ends_with("_age")) %>%
+    st_drop_geometry(), by = "TractID")
 ```
 
+
+## Feature Engineering
+
+#### Buffers
+
+Data from DataAxle was brought in to show the nearest grocery stores, restaurants, educational institutions, museums, recreational institutions, police departments, fire departments, medical facilitaties, shopping malls, and dispensaries. These were separated into three categories, 
 
 ### Nearest Neighbors
 Each of these points were then used to find the five nearest neighbor value using the `nn_function`. Nn1 columns shows the distance to the direct nearest neighbor, the second takes the average distance of the two nearest neighbors, the third takes the average distanve of the three nearest neighbors and so on.  
@@ -656,8 +636,20 @@ studentData <- studentData %>%
 # Methods
 
 ## Exploratory analysis
+To visually explore the data we've included some charts that will visually show the relationship between price and some of the variables that we have engineered and selected. 
 
-Below we've included some plots that we thought would be interesting in this analysis. We've included numeric and categorical values to evaluate which variables are correlated with price. 
+```{r max_price, include=FALSE, results='hold'}
+max <- max(
+  studentData %>%
+  filter(toPredict == 0) %>%
+  select(price) %>%
+  st_drop_geometry())
+```
+
+
+As the data is being explored, we removed the outlier `max`. This point would make some of the graphs challenging to view, because it would force the scale to be larger and as such more difficult to view the other points, because it does not accurately follow the trend of the other data.
+
+### Price Per Square Foot
 ```{r}
 # THIS IS WHERE WE CAN DIVERGE FROM TRAINING AND CHALLENGE DATASETS #
 
@@ -672,7 +664,9 @@ ggplot() +
   mapTheme()
 ```
 
-Visualize price as a function of various continuous variables
+
+### Visualize price by improvement age
+
 ```{r}
 st_drop_geometry(studentData) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
@@ -686,20 +680,9 @@ st_drop_geometry(studentData) %>%
 ```
 
 
-# Present 4 home price correlation scatterplots that you think are of interest. I’m going to look for interesting open data that you’ve integrated with the home sale observations
-
-```{r max_price, include=FALSE, results='hold'}
-max <- max(
-  studentData %>%
-  filter(toPredict == 0) %>%
-  select(price) %>%
-  st_drop_geometry())
-```
-
-We removed the outlier `max`. 
-
-
-```{r NN_Indicator, echo=FALSE, message=FALSE, warning=FALSE}
+### Nearest Neighbor Averages Education
+For this indicator, all nearest neighbors from 1-5 were selected and averaged. This data was than summarized to find the average per MUSA code and it's associated price. These prices were than selected and plotted in the following charts. As expected the larger the average of the education variables nearest neighbor the lower the price of the property. Phrased differently, the further the property was from an educational institution the lower the price. 
+```{r NN_Indicator_Education, echo=FALSE, message=FALSE, warning=FALSE}
 
 bind_rows(
   st_drop_geometry(studentData) %>%
@@ -751,6 +734,12 @@ bind_rows(
   facet_wrap(~nn) +
     plotTheme()
 
+```
+
+
+### Nearest Neighbors Averages Amenities
+The amenities indicator also calculated the nearest neighbors from 1-5 and summarized by MUSA code and its associated price. It also found that the further away an amenity is from the property the lower the property value.
+```{r NN_Indicator_Amenities, echo=FALSE, message=FALSE, warning=FALSE}
 bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max(na.omit(studentData$price))) %>%
@@ -800,8 +789,11 @@ bind_rows(
     labs(title = "Amenities Nearest Neighbor Average and Price") +
   facet_wrap(~nn) +
     plotTheme()
+```
 
-
+### Nearest Neighbors Averages Public Services
+THe last nearest neighbor indicator was public services. THis indicator serves the same purpose that the Amenities and Education indicator serves. The Public Services indicator showed that within the first nearest neighbor there is no decrease in price based on the distance from a public amenity; however, beyond the first nearest neighbor there is a difference in price. 
+```{r NN_Indicator_PubliCServices, echo=FALSE, message=FALSE, warning=FALSE}
 bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max(na.omit(studentData$price))) %>%
@@ -853,36 +845,22 @@ bind_rows(
     plotTheme()
 ```
 
-Price as a function of categorical variables
-```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
-st_drop_geometry(studentData) %>% 
-  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
-  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
-  filter(price <= 5000000) %>%
-  gather(Variable, Value, -price) %>% 
-   ggplot(aes(Value, price)) +
-     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
-     facet_wrap(~Variable, ncol = 1, scales = "free") +
-     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
-     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
+### Price by School District
+
+From the school district data, there are differences between different school distrcits and the price of the property. For example, district 1 and distrcit four have much higher property values than district three and two. This bar graph shows that in our model, we should consider the role the school distrcit has in predicting the price of the property. 
 
 ```{r}
 st_drop_geometry(studentData) %>%
   select(price, District) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, District)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+  geom_bar(aes(fill = District), position = "dodge", stat = "summary", fun.y = "mean") +
+  plotTheme()
 ```
 
-```{r eval=FALSE, include=FALSE}
-st_drop_geometry(studentData) %>%
-  filter(price <= 5000000) %>%
-  group_by(Zip) %>%
-  summarize(Frequency = n()) %>%
-  arrange(desc(Zip))
 
-```
+### Price by Zip code
+While it can be argued the zip code is correlated with school distrcit, zip codes provide more nuanced data and are more publically discussed than are census tracts. In this case there are a range of property price differences from each of the zip codes. Zip30 and and zip1 have higher values in comparison to the other zips. It is unclear if this is a random trend; however, there are stark enough differences in price, that it should be considered in the model.
 
 
 ```{r}
@@ -890,10 +868,24 @@ st_drop_geometry(studentData) %>%
   select(price, Zip) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, Zip)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+  geom_bar(aes(fill = Zip), position = "dodge", stat = "summary", fun.y = "mean") +
+  plotTheme()
+
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf,
+          aes(fill = White_Quartile)) +
+  geom_sf(data = studentData, 
+          aes(color = price)) +
+  labs(title = "White Quartile") +
+  mapTheme()
 ```
 
 
+### Price by Racial Quartile
+In engineering new data, we transformed census tracts racial categories by quartile to take into account how people from similar racial and ethnic backgrounds move to the similar locations.
+
+#### White Quartile
+The white quartile seemed to contradict general trends [CITE]. It appears that the less white people there were the higher the price of the property.  
 ```{r echo=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, White_Quartile) %>%
@@ -901,26 +893,80 @@ st_drop_geometry(studentData) %>%
   ggplot(aes(price, White_Quartile)) +
   geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
 
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf,
+          aes(fill = White_Quartile)) +
+  geom_sf(data = studentData, 
+          aes(color = price)) +
+  labs(title = "White Quartile") +
+  mapTheme()
+
+```
+
+
+#### Black Quartile
+
+In contrast, to Black populations, in census tracts where there were median amounts of Black people, the housing prices were higher. 
+```{r}
 st_drop_geometry(studentData) %>%
   select(price, Black_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, Black_Quartile)) +
   geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
 
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf,
+          aes(fill = Black_Quartile)) +
+  geom_sf(data = studentData, 
+          aes(color = price)) +
+  labs(title = "Black Quartile") +
+  mapTheme()
+```
+
+
+#### Asian Quartile
+The Asian Qaurtile provided the most stark differences in property values. Similar to white populations, where there were less Asians showed to be higher prices; however, it is important to note that in areas with many Asians the price still seemed to be high. 
+
+```{r}
 st_drop_geometry(studentData) %>%
   select(price, Asian_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, Asian_Quartile)) +
   geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
 
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf,
+          aes(fill = Asian_Quartile)) +
+  geom_sf(data = studentData, 
+          aes(color = price)) +
+  labs(title = "Asian Quartile") +
+  mapTheme()
+```
+
+#### American Indian Quartile
+Finally in populations where there were less American Indians, there tended to be higher housing prices.
+
+```{r}
 st_drop_geometry(studentData) %>%
   select(price, American_Indian_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, American_Indian_Quartile)) +
   geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+
+ggplot() +
+  geom_sf(data = acsTractsCol.2019.sf,
+          aes(fill = American_Indian_Quartile)) +
+  geom_sf(data = studentData, 
+          aes(color = price)) +
+  labs(title = "American Indian Quartile") +
+  mapTheme()
 ```
 
+Although this report has brought about some fascinating findings around race, the intent of this report is to portray the differences in price across race and how these findings can be used to inform our model. It is clear that race is a factor in our model, and as such it will be included in the final predictive model. 
+
 # Predictive Model Development
+
+To develop our pricing model, we will be using multiple regression and cross-validation & goodness of fit to validate our model. 
 
 ```{r message=FALSE, warning=FALSE, results='hold'}
 studentData.training <- studentData %>%
@@ -1068,9 +1114,12 @@ A <- bind_rows(
 studentData.training <- left_join(studentData.training, A, by = "MUSA_ID")
 
 ```
+## Correlation matrix
 
+To begin this process we first needed to determine what data was strongly correlated. Our definition of strongly correlated were any values that were greater the 0.7 and less the -0.7. These values were removed because they would not provide any new information to the model because they shared similarities to other values in the data set. The correlation table only captures variables that are numeric. Next, we selected all the pairs of variables that had values between 0.6 and 0.3, and -0.6 and -0.3. These pairs of values were then sorted through to find only the unique combinations. From the unique combination of correlated pairs, we only selected the pairs that were correlated to price. 
 
-Correlation matrix
+In addition to these numeric values we also included the categorical variables: race, zip code and school distrcit. 
+
 ```{r message=FALSE, warning=FALSE, results='hold'}
 numericVars <- studentData.training %>%
                   select(!contains("grocery")) %>%
@@ -1157,17 +1206,6 @@ keep <- append(keep, categorical)
 
 ```
 
-#### OLS
-```{r eval=FALSE, warning=FALSE, include=FALSE}
-cor.test(studentData.training$mean_distance, studentData.training$price, method = "pearson")
-
-cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
-
-livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
-
-summary(livingReg)
-```
-
 ### Multiple regression
 
 ```{r message=FALSE, warning=FALSE, results='hold'}
@@ -1179,6 +1217,7 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>%
 
 summary(reg1)
 ```
+
 
 ### Testing accuracy using MAE & MAPE
 ```{r message=FALSE, warning=FALSE, results='hold'}
@@ -1262,6 +1301,8 @@ ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
 # Results
 
 # Discussion
+
+Overall, this model is not very effective. Although the error in the model is about `mape * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. 
 
 # Conclusion
 
@@ -1542,6 +1583,38 @@ ggplot() +
           color = "Black")
 ```
 
+### Boulder City Fixed Effect
+
+```{r city_Limits, eval=FALSE, include=FALSE, results='hide'}
+boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
+  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
+  mutate(inCity = 1)
+
+# Determine if a house is within the city or not - used for cases in which only city data is available
+studentData <- studentData %>%
+  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
+
+studentData <- studentData %>%
+  mutate(withinCity = replace_na(withinCity,"0"))
+
+# Change 
+#studentData <- studentData %>%
+#  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
+
+#zips <- c(80301:80305)
+#zips <- as.character(zips)
+
+#ggplot() +
+#  geom_sf(data = acsZipsCol.2019.sf %>%
+#            filter(GEOID %in% zips)) +
+#  geom_sf(data = studentData) +
+#  geom_sf(data = boulderCityLimits,
+#          fill = "transparent",
+#          border = 2)
+```
+
+
+
 ### Rental Properties
 ```{r colorado_data, eval=FALSE, message=TRUE, warning=FALSE, include=FALSE}
 
@@ -1768,4 +1841,31 @@ st_drop_geometry(studentData) %>%
     facet_wrap(~Amenities) +
     labs(title = "Nearest Neighbor 5 all Locations and Price") +
     plotTheme()
+```
+
+## Categorical Variables Plots
+
+```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
+st_drop_geometry(studentData) %>% 
+  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
+  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
+  filter(price <= 5000000) %>%
+  gather(Variable, Value, -price) %>% 
+   ggplot(aes(Value, price)) +
+     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
+     facet_wrap(~Variable, ncol = 1, scales = "free") +
+     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
+     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## OLS OLD
+#### OLS
+```{r eval=FALSE, warning=FALSE, include=FALSE}
+cor.test(studentData.training$Edu_mean_distance, studentData.training$price, method = "pearson")
+
+cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
+
+livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
+
+summary(livingReg)
 ```
