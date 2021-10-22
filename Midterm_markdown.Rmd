@@ -1265,11 +1265,11 @@ spatialWeights.test <- nb2listw(neighborList.test, style="W")
 
 test %>% 
   mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
-  ggplot(aes(lagPriceError, SalePrice.Error)) +
+  ggplot(aes(price, SalePrice.Predict)) +
   geom_point(color = "orange") +
   geom_abline(color = "dark green",
               size = 1) + 
-  labs(title = "Error as a function of the spatial lag of price") +
+  labs(title = "Predicted Price plotted on Actual Price") +
   plotTheme()
 
 test %>% 
