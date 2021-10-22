@@ -891,7 +891,8 @@ st_drop_geometry(studentData) %>%
   select(price, White_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, White_Quartile)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+  geom_bar(aes(fill = White_Quartile),position = "dodge", stat = "summary", fun.y = "mean") +
+  plotTheme()
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf,
@@ -912,7 +913,8 @@ st_drop_geometry(studentData) %>%
   select(price, Black_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, Black_Quartile)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+  geom_bar(aes(fill = Black_Quartile),position = "dodge", stat = "summary", fun.y = "mean") +
+  plotTheme()
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf,
@@ -932,7 +934,8 @@ st_drop_geometry(studentData) %>%
   select(price, Asian_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, Asian_Quartile)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+  geom_bar(aes(fill = Asian_Quartile),position = "dodge", stat = "summary", fun.y = "mean") +
+  plotTheme()
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf,
@@ -951,7 +954,8 @@ st_drop_geometry(studentData) %>%
   select(price, American_Indian_Quartile) %>%
   filter(price <= 5000000) %>%
   ggplot(aes(price, American_Indian_Quartile)) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
+  geom_bar(aes(fill = American_Indian_Quartile),position = "dodge", stat = "summary", fun.y = "mean") +
+  plotTheme()
 
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf,
