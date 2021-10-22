@@ -1130,7 +1130,7 @@ st_drop_geometry(studentData) %>%
   ggplot(aes(price, Zip)) +
   geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
 ```
-```{r}
+```{r eval=FALSE, include=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, White_Quartile ) %>%
   filter(price <= 5000000) %>%
@@ -1621,4 +1621,13 @@ studentData.challenge <- left_join(studentData.challenge, A, by = "MUSA_ID")
 
 studentData.challenge <- studentData.challenge %>%
   mutate(SalePrice.Predict = predict(reg.training, studentData.challenge))
+
+
+# Write challenge predictions to a csv
+predictions <- studentData.challenge %>%
+  st_drop_geometry() %>%
+  select(MUSA_ID, SalePrice.Predict) %>%
+  dplyr::rename(price = SalePrice.Predict) 
+
+write.csv(predictions, "john2.csv")
 ```
