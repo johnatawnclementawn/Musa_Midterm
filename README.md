@@ -13,13 +13,13 @@ Tasks to complete
   - [X] Simplify Zip code and School district assignment 
   - [X] Area analysis Zip Code
   - [X] Area analysis School District
-- [ ] Regression
-  - [ ] Select variables
-  - [ ] Test model(s) with those vars
-  - [ ] Moran's I
-  - [ ] MAE / MAPE
-- [ ] Regression Interpretation -
-  - [ ] Do we need to return to feature engineering?
+- [X] Regression
+  - [X] Select variables
+  - [X] Test model(s) with those vars
+  - [X] Moran's I
+  - [X] MAE / MAPE
+- [X] Regression Interpretation -
+  - [X] Do we need to return to feature engineering?
 - [ ] Report
   - [ ] Intro
   - [ ] Data
