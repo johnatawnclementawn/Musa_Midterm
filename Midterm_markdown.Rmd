@@ -633,8 +633,6 @@ studentData <- studentData %>%
          amenities_dispensaries_nn5 = nn_function(st_c(studentData), st_c(Dispensaries), 5))
 ```
 
-# Methods
-
 ## Exploratory analysis
 To visually explore the data we've included some charts that will visually show the relationship between price and some of the variables that we have engineered and selected. 
 
@@ -968,9 +966,9 @@ ggplot() +
 
 Although this report has brought about some fascinating findings around race, the intent of this report is to portray the differences in price across race and how these findings can be used to inform our model. It is clear that race is a factor in our model, and as such it will be included in the final predictive model. 
 
-# Predictive Model Development
+# Method
 
-To develop our pricing model, we will be using multiple regression and cross-validation & goodness of fit to validate our model. 
+To develop our pricing model, we will be using multiple regression and cross-validation & goodness of fit to validate our model. This model uses a basic linear equation y = mx + b, where y is the predicted value, m is the slope, x is the variable and b is the intercept. In creating a model using multiple variables from our dataset, we add more variables to create m1x1 and m2x2 and so on. This allows us to create a model that can predict prices based on a linear model. 
 
 ```{r message=FALSE, warning=FALSE, results='hold'}
 studentData.training <- studentData %>%
@@ -1170,13 +1168,13 @@ A <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
   pivot_longer(2:(ncol(res)-2)) %>%
-  filter(value >= 0.3 & value <0.6)
+  filter(value >= 0.3 & value <=0.6)
 
 B <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
   pivot_longer(2:(ncol(res)-2)) %>%
-  filter(value >= -0.6 & value < -0.3)
+  filter(value >= -0.6 & value <= -0.3)
 
 corlist <- bind_rows(A,B)
 
@@ -1306,7 +1304,7 @@ ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
 
 # Discussion
 
-Overall, this model is not very effective. Although the error in the model is about `mape * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. 
+Overall, this model is not very effective. Although the error in the model is about `mape * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. The most powerful predictor in our model was distance from education with an estimated value of -6.260e+01. 
 
 # Conclusion
 
