@@ -13,12 +13,11 @@ output:
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
-pacman::p_load(tidyverse, tidycensus, sf, kableExtra, tmap, viridis, gridExtra, spdep, caret, ckanr, FNN, grid, gridExtra, ggcorplot, httr, sf, zipcodeR)
+pacman::p_load(caret, ckanr, FNN, ggcorplot, grid, gridExtra, httr, kableExtra, modelsummary, tidyverse, tidycensus, sf,  spdep, tmap, viridis,  zipcodeR)
 library(ggcorrplot)
 
-
-options(scipen = 999)
 options(scipen =  "sf")
+options(scipen = 999)
 
 source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 
@@ -276,9 +275,8 @@ acsZipsCol.2019 <- search_county('Boulder', 'CO')
 studentData <- studentData %>%
   mutate(
     Zip = paste0("Zip",as.integer(st_intersects(geometry,acsZipsCol.2019.sf)))
-    #,
     #zipcode = if_else(is.na(Zip), "", acsSchoolDistrctssCol.2019.sf$NAME[Zip])
-  )
+  ) 
 
 ggplot() +
   geom_sf(data = acsZipsCol.2019.sf) +
@@ -660,7 +658,7 @@ ggplot() +
   scale_colour_manual(values = palette5,
                    labels=qBr(studentData,"pricePerSF"),
                    name="Quintile\nBreaks") +
-  labs(title="Price Per Square Foot, Boulder Ccounty Colorado") +
+  labs(title="Price Per Square Foot, Boulder County Colorado") +
   mapTheme()
 ```
 
@@ -874,10 +872,12 @@ st_drop_geometry(studentData) %>%
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf,
           aes(fill = White_Quartile)) +
-  geom_sf(data = studentData, 
+  geom_sf(data = studentData %>% na.omit() %>% filter(price < 5000000), 
           aes(color = price)) +
+  scale_color_steps(low="white", high="black", n.breaks = 5)
   labs(title = "White Quartile") +
   mapTheme()
+
 ```
 
 
@@ -1210,11 +1210,8 @@ categorical <- colnames(studentData %>%
     st_drop_geometry())
   
 
-# JC HAD TO REMOVE ZIP BECAUSE I DON'T HAVE THE WORKING ZIPCODES CODE RN - 10.20.2021@ 1230AM
-#categorical <- append(categorical, c("District","price","Zip"))
 categorical <- c("Zip","District","price")
 keep <- append(keep, categorical)
-
 
 ```
 
@@ -1228,6 +1225,7 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>%
        dplyr::select(keep))
 
 summary(reg1)
+
 ```
 
 
@@ -1263,6 +1261,19 @@ print(mae)
 mape <- mean(test$SalePrice.APE, na.rm=TRUE)
 print(mape)
 
+
+# Predict house prices for training data
+studentData.training <- studentData.training %>%
+  mutate(SalePrice.Predict = predict(reg.training, studentData.training))
+
+
+# Create list for models
+models <- list()
+models[['NoSD']] <- reg1
+models[['SD']] <- reg.training
+
+# Table of regression outputs
+modelsummary(models, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
 ```
 
 ### Do prices and errors cluster - spatial lag & testing for SA in our current model
@@ -1282,14 +1293,6 @@ test %>%
   labs(title = "Error as a function of the spatial lag of price") +
   plotTheme()
 
-test %>% 
-  mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
-  ggplot(aes(lagPriceError, SalePrice.Error)) +
-  geom_point(color = "orange") +
-  geom_abline(color = "dark green",
-              size = 1) + 
-  labs(title = "Error as a function of the spatial lag of price") +
-  plotTheme()
 ```
 
 
@@ -1309,20 +1312,31 @@ ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
   plotTheme()
 ```
 
+### MAPE by neighborhood
+```{r}
+test <- test %>%
+  st_join(., acsZipsCol.2019.sf, join=st_intersects) %>%
+  dplyr::select(!c(127:160))
 
-# Results
 
-# Discussion
+st_drop_geometry(test) %>%
+  group_by(GEOID.x) %>%
+  summarize(mean.MAPE = mean(SalePrice.APE, na.rm = T)) %>%
+  ungroup() %>% 
+  left_join(acsZipsCol.2019.sf, by = c("GEOID.x" = "GEOID")) %>%
+    st_sf() %>%
+    ggplot() + 
+      geom_sf(aes(fill = mean.MAPE)) +
+      geom_sf(data = test, colour = "black", size = .5) +
+      scale_fill_gradient(low = palette5[1], high = palette5[5],
+                          name = "MAPE") +
+      labs(title = "Mean test set MAPE by neighborhood") +
+      mapTheme()
+```
 
-Overall, this model is not very effective. Although the error in the model is about `mape * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. 
 
-# Conclusion
-
-# Appendix
-
-## CHALLENGE SET
-
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+### CHALLENGE SET
+```{r message=FALSE, warning=FALSE}
 studentData.challenge <- studentData %>%
     filter(toPredict == 1)
 
@@ -1449,21 +1463,80 @@ A <- bind_rows(
 
 studentData.challenge <- left_join(studentData.challenge, A, by = "MUSA_ID")
 
+# Predict house prices for challenge data set
 studentData.challenge <- studentData.challenge %>%
   mutate(SalePrice.Predict = predict(reg.training, studentData.challenge))
 
 
 # Write challenge predictions to a csv
-predictions <- studentData.challenge %>%
-  st_drop_geometry() %>%
-  select(MUSA_ID, SalePrice.Predict) %>%
-  dplyr::rename(price = SalePrice.Predict) 
-
-write.csv(predictions, "john2.csv")
+# predictions <- studentData.challenge %>%
+#   st_drop_geometry() %>%
+#   select(MUSA_ID, SalePrice.Predict) %>%
+#   dplyr::rename(price = SalePrice.Predict) 
+# 
+# write.csv(predictions, "john2.csv")
 
 ```
 
-## Code hoarding because we have a problem
+### Predicted home prices as a function of actual home price
+```{r}
+studentData.training %>%
+  select(SalePrice.Predict, price) %>%
+  filter(price < 3000000) %>%
+  ggplot(aes(price, SalePrice.Predict)) +
+  geom_point(color = "orange") +
+  geom_abline(color = "dark green",
+              size = 1) + 
+  labs(title = "Predicted home prices as a function of actual home price") +
+  plotTheme()
+
+##################### OR ############################ 
+
+studentData.training %>%
+  select(SalePrice.Predict, price) %>%
+  ggplot(aes(price, SalePrice.Predict)) +
+  geom_point(color = "orange") +
+  geom_abline(color = "dark green",
+              size = 1) + 
+  labs(title = "Predicted home prices as a function of actual home price") +
+  plotTheme()
+  
+```
+
+
+
+### Map of Predicted home prices
+```{r}
+totalPredictions <- rbind(studentData.challenge %>% select(SalePrice.Predict, price), 
+                          studentData.training %>% select(SalePrice.Predict, price))
+
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
+  geom_sf(data = totalPredictions %>% filter(SalePrice.Predict< 1500000), aes(colour = SalePrice.Predict), 
+          show.legend = "point", size = .75) +
+  scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
+  labs(title="Predicted House Price, Boulder County Colorado") +
+  mapTheme()
+```
+
+```{r}
+weirdPred <- totalPredictions %>%
+  filter(SalePrice.Predict < 0)
+```
+
+
+
+
+# Results
+
+# Discussion
+
+Overall, this model is not very effective. Although the error in the model is about `r mean(test$SalePrice.APE) * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. 
+
+# Conclusion
+
+# Appendix AKA Code hoarding because we have a problem
 
 ### Drafts for Race data
 ```{r Race_dontrun, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
@@ -1867,7 +1940,7 @@ st_drop_geometry(studentData) %>%
 
 ## Categorical Variables Plots
 
-```{r fig.height=15, fig.width=10, message=FALSE, warning=FALSE}
+```{r eval=FALSE, fig.height=15, fig.width=10, message=FALSE, warning=FALSE, include=FALSE}
 st_drop_geometry(studentData) %>% 
   dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
   # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
