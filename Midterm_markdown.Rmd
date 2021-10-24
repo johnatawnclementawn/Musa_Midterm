@@ -1009,7 +1009,7 @@ ggplot() +
 
 Although this report has brought about some fascinating findings around race, the intent of this report is to portray the differences in price across race and how these findings can be used to inform our model. It is clear that race is a factor in our model, and as such it will be included in the final predictive model. 
 
-# Predictive Model Development
+## Predictive Model Development
 
 To develop our pricing model, we will be using multiple regression and cross-validation & goodness of fit to validate our model. 
 
@@ -1266,9 +1266,8 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>%
        dplyr::select(keep))
 
 summary(reg1)
-
 ```
-
+# Results
 
 ### Testing accuracy using MAE & MAPE
 ```{r message=FALSE, warning=FALSE, results='hold'}
@@ -1303,18 +1302,13 @@ mape <- mean(test$SalePrice.APE, na.rm=TRUE)
 print(mape)
 
 
-# Predict house prices for training data
+# Predict house prices for all training data
 studentData.training <- studentData.training %>%
   mutate(SalePrice.Predict = predict(reg.training, studentData.training))
 
 
-# Create list for models
-models <- list()
-models[['NoSD']] <- reg1
-models[['SD']] <- reg.training
-
 # Table of regression outputs
-modelsummary(models, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
+modelsummary(reg1, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
 ```
 
 ### Do prices and errors cluster - spatial lag & testing for SA in our current model
@@ -1359,7 +1353,7 @@ test <- test %>%
   st_join(., acsZipsCol.2019.sf, join=st_intersects) %>%
   dplyr::select(!c(127:161))
 
-
+# Spatially visulaize MAPE by neighborhood
 st_drop_geometry(test) %>%
   group_by(GEOID) %>%
   summarize(mean.MAPE = mean(SalePrice.APE, na.rm = T)) %>%
@@ -1373,6 +1367,20 @@ st_drop_geometry(test) %>%
                           name = "MAPE") +
       labs(title = "Mean test set MAPE by neighborhood") +
       mapTheme()
+
+# Scatter plot of MAPE by neighborhood as a function of mean price by neighborhood
+test %>%
+  st_drop_geometry() %>%
+  select(SalePrice.APE, price, Zip) %>%
+  # filter(price < 3000000) %>%
+  group_by(Zip) %>%
+  summarize(mean.MAPE = mean(SalePrice.APE, na.rm = T), mean.Price = mean(price, na.rm= T)) %>%
+  ggplot(aes(mean.Price, mean.MAPE)) +
+    geom_point(color = "orange") +
+    geom_abline(color = "dark green", size = 1) + 
+  labs(title = "MAPE as a function of average home prices by Neighborhood") +
+  plotTheme()
+
 ```
 
 
@@ -1468,8 +1476,6 @@ st_join(test, acsZipsCol.2019.sf) %>%
   kable(caption = "Test set MAPE by neighborhood income context")
 ```
 
-
-# Results
 
 # Discussion
 
