@@ -25,13 +25,18 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 ```
 
 # Introduction
+
   The intent of this report is to use local intelligence to improve zillow's predictive model utilizing only OLS regression. What we did to improve the model was include [INSERT VARAIBLES HERE].
 
 # Data
-  We were first given a dataset that included housing prices and the points where they were located. From here, we decided to organize our data between fixed-effect and nearest neighbors. Fixed-effects take into consideration points that lie within a designated boundary. For example, all houses in a particular zip code would undergo a similar fixed-effect because they all inhabit that zip code. In contrast, the nearest neighbor calculates the distance between two points and takes the average of those distances by nearest neighbor value.
+  
+  The house sales data obtained for this study were obtained from the Boulder County Assessor’s Property Sales and Data download site. This dataset holds information on a house’s internal characteristics such as the total finished square feet, type of heating apparatus, and whether the house has a garage or not. Further, for this study, each house was assigned its own unique identifier, known as the MUSA_ID. However, a robust model would not be effective if it only had these individual property characteristics to predict on.\   
+To account for the public services and amenities that could affect house prices, data were retrieved from the City of Boulder, Boulder County, and Data Axle reference solutions, the last of which is a service that collects and provides business data to libraries. For this study, Data Axle was quite useful in providing data on various groups of businesses, such as police, fire, and EMT departments, shopping malls, museums and schools, and marijuana dispensaries.\     Finally, data were collected to measure and account for the spatial processes that are at play with house prices. These fixed effects take into consideration points that lie within a designated boundary. For example, all houses in a particular zip code would undergo a similar fixed effect because they all inhabit that zip code. In contrast, the nearest neighbor calculates the distance between two points and takes the average of those distances by nearest neighbor value.\   
+Below, we dive into the specifics of the most important datasets that we incorporated. 
+
 
 ## Home prices dataset
-```{r housedata, message=FALSE, warning=FALSE, include=FALSE, results='hold', results = 'hide'}
+```{r housedata, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
 # Set CRS for project
 CO_statePlaneCentral = "ESRI:102254"
 
@@ -53,14 +58,15 @@ studentData$pricePerSF <- as.integer(studentData$pricePerSF)
 # difference <- addition[! duplicated(addition, fromLast = TRUE) & seq(nrow(addition)) <= nrow(studentData.training), ]
 ```
 
-## Fixed Effects 
+## Fixed Effects
 
-The fixed effects data that we selected include the 2019 census tract data, bounder county school districts, Boulder City limits and Boulder county zip codes. These are all fixed effects as the represent spaces that the points inhabit and are shaped by. SOme of these fixed effects will be engineered to provide more in depth analysis
+The fixed effects data that we selected include the 2019 census tract data, bounder county school districts, Boulder City limits and Boulder County zip codes. These are all fixed effects as they represent spaces that the points inhabit and are shaped by. Some of these fixed effects will be engineered to provide more in-depth analysis.
 
 ### Census 2019
-The first fixed effect variables that we looked at was census tract. With the census tract data we pulled variables on Race and Median age. Race was important as a fixed effect to predict housing price, people with similar racial categories often move into similar spaces. Age was important, because people may be interested moving into areas with similarly aged people. 
 
-```{r tidycensus_2019, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
+The first fixed effect variables that we looked at was census tract. With the census tract data, we pulled variables on Race and Median age. Race was important as a fixed effect to predict housing price, people with similar racial categories often move into similar spaces. Age was important because people may be interested moving into areas with similarly aged people.
+
+```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE, results='hold'}
 
 #variables on frequency of Race
 Variables <- load_variables(2019,
@@ -146,26 +152,13 @@ acsTractsCol.2019.sf <- get_acs(geography = "tract",
 
 acsTractsCol.2019.sf <- mutate(acsTractsCol.2019.sf, TractID = row_number())
 
-  ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf)
 
-# Read in census Block groups
- acsBGCol.2019.sf <- get_acs(geography = "block group",
-         year = 2019,
-         variables = Variables$name, 
-         state="Colorado",
-         county= c("Boulder"),
-         geometry=T,
-         output = "wide") %>% 
-   st_transform(CO_statePlaneCentral) %>%
-   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
- 
- ggplot() +
-   geom_sf(data = acsBGCol.2019.sf)+
-   labs(title = "Census Block Groups, Boulder County, Colorado")
+ggplot() +
+ geom_sf(data = acsTractsCol.2019.sf)+
+ labs(title = "Census Tracts, Boulder County, Colorado")
 
  
- # Assign a school district to each home
+# Assign a school district to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
 studentData <- studentData %>%
   mutate(
@@ -177,8 +170,8 @@ studentData <- studentData %>%
 
 ### Boulder City Fixed Effect
 
-Lastly we thought it would be important to consider which points were within Boulder City limits. These points were engineered to consider if they were or were not within the city limits. 
-```{r city_Limits1}
+We thought it would be important to consider which points were within Boulder City limits. These points were engineered to consider if they were or were not within the city limits. 
+```{r city_Limits1, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
   st_transform(st_crs(acsTractsCol.2019.sf)) %>%
   mutate(inCity = 1)
@@ -190,16 +183,16 @@ studentData <- studentData %>%
 studentData <- studentData %>%
   mutate(withinCity = replace_na(withinCity,"0"))
 
-# Change 
+# Change withinCity from categorical (possible values of 1,2,3...) to binary (1 = within city, 0 = out of city)
 studentData <- studentData %>%
   mutate(withinCity = ifelse(withinCity > 0, 1, 0))
 ```
 
 ### Boulder County School Districts
 
-Another fixed effect that was included in the analysis was school distrct. The assumption that is being made with school district is that potential homebuyers value general education and they believe that education will increase their own, or their children, human capital. School district data was also pulled from the American Community Survey data and overlapped by census tracts to ensure all the correct locations were used. Each point from the dataset was then assigned to a particular district.
+Another fixed effect that was included in the analysis was school district. The assumption that is being made with school district is that potential home buyers value general education and they believe that education will increase their own, or their children, human capital. School district data was also pulled from the American Community Survey data and overlapped by census tracts to ensure all the correct locations were used. Each point from the dataset was then assigned to a particular district.
 
-```{r school_districts, message=FALSE, warning=FALSE, include=FALSE}
+```{r school_districts, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 #Unified School District
 acsSchoolDistrctssCol.2019.sf <- get_acs(geography = "school district (unified)",
         year = 2019,
@@ -237,9 +230,9 @@ studentData <- studentData %>%
 
 ### Boulder County Zip codes
 
-Most people are not aware of what census tract they live in; however, census tract data provides more detail then zip codes do. As such we thought it was important to analyze the prices in each zip code. Zipcodes are also strong predictors of future economic outcomes.  
+Most people are not aware of what census tract they live in; however, census tract data provides more detail than zip codes do. As such we thought it was important to analyze the prices in each zip code. Zip codes are also strong predictors of future economic outcomes.  
 
-```{r Zip_codes, warning=FALSE, results='hide'}
+```{r Zip_codes, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 
 #Zip Code
 acsZipsCol.2019.sf <- get_acs(geography = "zcta",
@@ -293,15 +286,13 @@ acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
 # #   st_sf()
 
 
-ggplot() +
-  geom_sf(data = acsZipsCol.2019.sf) +
-  geom_sf(data = studentData)
+# ggplot() +
+#   geom_sf(data = acsZipsCol.2019.sf) +
+#   geom_sf(data = studentData)
 
 # zuocodeR package
 acsZipsCol.2019 <- search_county('Boulder', 'CO') 
 
-#ggplot() +
-#  geom_sf(data = acsZipsCol.2019)
 
 # Assign a zipcode to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
@@ -313,17 +304,16 @@ studentData <- studentData %>%
 
 ggplot() +
   geom_sf(data = acsZipsCol.2019.sf) +
-  labs(title = "Zip Tracts, Boulder County, Colorado")
+  labs(title = "Zip Codes, Boulder County, Colorado")
 ```
 
 ## Point Data
-Although it is possible to pull buffered data to analyze data by fixed effects, the fixed effect data is often categorical or binaried and does not provide the nuance in building a model. To rememdy this, we selected found point data on floods, Amernities, Public Services and Education resources nearby. The benefit of this point data is that numeric data can be used in the model to provide more detail.
+Although it is possible to pull buffered data to analyze data by fixed effects, the fixed effect data is often categorical or binary and does not provide the nuance in building a model. To remedy this, we selected found point data on floods, amenities, public services, and education resources nearby. The benefit of this point data is that numeric data can be used in the model to provide more detail.
 
 ### Flood Data
-Other factors that were considered in this analysis was flood plain data. Flood plain data takes into consideration how close the nearest flood point is. [JC]
+Other factors that were considered in this analysis was flood plain data. As storms become stronger due to climate change, homeowners are likely to be more sensitive to the proximity of a house to a flood plain. For this study, 100-year flood plain data for the State of Colorado were retrieved from FEMA and reduced to Boulder County. We then turned the flood plain regions into point data to calculate the nearest neighbor points for each house. However, it may have been better to process the data as a fixed effect by just determining if a house is within our outside of a 100-year floodplain. 
 
-Website available for data https://open-data.bouldercolorado.gov/ 
-```{r floodplains}
+```{r floodplains, echo=TRUE, message=FALSE, warning=FALSE}
 # Locations of 100 Year floodplain within Boulder County
 # Data originally for the whole state, subsetted to Boulder County via st_intersect
 ## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
@@ -358,28 +348,16 @@ ggplot() +
 ```
 
 ### Amenities
-Amenity data was selected from Data Axle, and includes institutions such as groceries, restaurants, shopping mapps, and recreational institutions. We thought that these institutions are not necessarily pubilc services, but provide benefits to the communities lifestyle.
+Amenity data was selected from Data Axle, and includes institutions such as groceries, restaurants, shopping maps, and recreational institutions. We thought that these institutions are not necessarily public services but provide benefits to the communities’ lifestyle.
 
 ### Public Services
 Public services include hospitals, police departments, and fire departments. Although hospitals may not necessarily be public not-for-profit institutions, we thought it was important to include because of the impact that they have on public health and wellbeing of the community.
 
 ### Education
-Educational variables included variables that provide educational benefits to the community. This primarily include public and private schools, neighborhoods and universities. There is no weighted system that distinguishes the different types of educational institution in this dataset. 
+Educational variables included variables that provide educational benefits to the community. This primarily include public and private schools, neighborhoods, and universities. There is no weighted system that distinguishes the different types of educational institution in this dataset.
+ 
 
-```{r} 
-# # Locations of Zoning districts
-# ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
-# ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
-# zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
-#   st_transform(CO_statePlaneCentral)
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = zoning) +
-#   labs(title = "Zoning Districts")
-
-
+```{r libraries, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Locations of 19 libraries 
 ## https://opendata-bouldercounty.hub.arcgis.com/datasets/libraries-2/explore?location=40.001009%2C-105.302539%2C11.28
 Col_Library <- st_read("https://opendata.arcgis.com/datasets/7f4ea25ba87345e380d2e896611d2588_0.geojson") %>%
@@ -404,7 +382,7 @@ ggplot() +
 ```
  
  
-```{r, results='hold'}
+```{r echo=TRUE, message=FALSE, warning=FALSE, results='hold'}
 # Grocery Stores from Data Axle
 Grocery_Store <- read.csv("DataAxle_GroceryStores.csv") %>%
   st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326, agr = "constant") %>%
@@ -532,11 +510,14 @@ Buffer_Dispensaries <- st_union(st_buffer(Dispensaries, 5280) %>%
 
 ``` 
  
-# Feature Engineering
+# Methods
 
-Once all the data was imported, the data was then transformed into a variety of ways to understand fixed effects and geographic distances.
+##Feature Engineering
+
+Once all the data were imported, the data were then transformed into a variety of ways to understand fixed effects and geographic distances.
 
 ### Census Tracts by Race
+
 To utilize the census tracts these data were transformed into quartiles. The census tracts would represent the frequency of racial populations in that area. For example, for `White_quartile` column would predict for a specific quartile is the price, higher or lower. The same can be applied to other racial categories as well. 
 
 ```{r include=FALSE, results='hold'}
@@ -563,14 +544,14 @@ studentData <- left_join(studentData, acsTractsCol.2019.sf %>%
 ```
 
 
-## Feature Engineering
+### Data classifications
 
-#### Buffers
+Data from DataAxle were separated into three categories: amenities (grocery stores, restaurants, recreational institutions, shopping malls, and marijuana dispensaries), public services (police departments, fire departments, medical facilities), and education (educational institutions and museums). 
 
-Data from DataAxle was brought in to show the nearest grocery stores, restaurants, educational institutions, museums, recreational institutions, police departments, fire departments, medical facilitaties, shopping malls, and dispensaries. These were separated into three categories, 
 
 ### Nearest Neighbors
-Each of these points were then used to find the five nearest neighbor value using the `nn_function`. Nn1 columns shows the distance to the direct nearest neighbor, the second takes the average distance of the two nearest neighbors, the third takes the average distanve of the three nearest neighbors and so on.  
+
+Each of these points were then used to find the five nearest neighbor value using the `nn_function`. Nn1 columns shows the distance to the direct nearest neighbor, the second takes the average distance of the two nearest neighbors, the third takes the average distance of the three nearest neighbors and so on.  
 
 ```{r message=FALSE, warning=FALSE, include=FALSE, results='hold'}
 ## grovery Nearest Neighbor
@@ -664,7 +645,6 @@ studentData <- studentData %>%
          amenities_dispensaries_nn5 = nn_function(st_c(studentData), st_c(Dispensaries), 5))
 ```
 
-# Methods
 
 ## Exploratory analysis
 To visually explore the data we've included some charts that will visually show the relationship between price and some of the variables that we have engineered and selected. 
@@ -677,28 +657,23 @@ max <- max(
   st_drop_geometry())
 ```
 
-
 As the data is being explored, we removed the outlier `max`. This point would make some of the graphs challenging to view, because it would force the scale to be larger and as such more difficult to view the other points, because it does not accurately follow the trend of the other data.
 
-### Price Per Square Foot
+### Internal Characteristics
+The following figure illustrates the spatial clustering of home prices by showing the price per finished square foot in the house. It is evident that there is clustering of higher-priced homes in and around the City of Boulder. We will need to account for this in our predictive model.
 ```{r}
-# THIS IS WHERE WE CAN DIVERGE FROM TRAINING AND CHALLENGE DATASETS #
-
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
   geom_sf(data = studentData, aes(colour = q5(pricePerSF)), 
           show.legend = "point", size = .75) +
   scale_colour_manual(values = palette5,
                    labels=qBr(studentData,"pricePerSF"),
-                   name="Quintile\nBreaks") +
+                   name="Quintile\nBreaks\nUSD") +
   labs(title="Price Per Square Foot, Boulder County Colorado") +
   mapTheme()
 ```
-
-
-### Visualize price by improvement age
-
-```{r}
+The following figure illustrates the correlation between house price, house age, how recently a house was improved (improvement age), and total square finished square feet. If a house has not been improved since it was built, improvement age will be 0. 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
   filter(price <= 5000000, age < 500) %>%
@@ -706,7 +681,7 @@ st_drop_geometry(studentData) %>%
    ggplot(aes(Value, price)) +
      geom_point(size = .5) + geom_smooth(method = "lm", se=F, colour = "#FA7800") +
      facet_wrap(~Variable, ncol = 3, scales = "free") +
-     labs(title = "Price as a function of continuous variables") +
+     labs(title = "Price as a function of home age,\nage of improvements, and finished square footage") +
      plotTheme()
 ```
 
@@ -878,7 +853,7 @@ bind_rows(
 
 ### Price by School District
 
-From the school district data, there are differences between different school distrcits and the price of the property. For example, district 1 and distrcit four have much higher property values than district three and two. This bar graph shows that in our model, we should consider the role the school distrcit has in predicting the price of the property. 
+From the school district data, there are differences between different school districts and the price of the property. For example, district 1 and district four have much higher property values than district three and two. This bar graph shows that in our model, we should consider the role the school district has in predicting the price of the property. 
 
 ```{r}
 st_drop_geometry(studentData) %>%
@@ -891,7 +866,7 @@ st_drop_geometry(studentData) %>%
 
 
 ### Price by Zip code
-While it can be argued the zip code is correlated with school distrcit, zip codes provide more nuanced data and are more publically discussed than are census tracts. In this case there are a range of property price differences from each of the zip codes. Zip30 and and zip1 have higher values in comparison to the other zips. It is unclear if this is a random trend; however, there are stark enough differences in price, that it should be considered in the model.
+While it can be argued the zip code is correlated with school district, zip codes provide more nuanced data and are more publicly discussed than are census tracts. In this case there are a range of property price differences from each of the zip codes. Zip30 and and zip1 have higher values in comparison to the other zips. It is unclear if this is a random trend; however, there are stark enough differences in price, that it should be considered in the model.
 
 
 ```{r}
@@ -1169,7 +1144,7 @@ studentData.challenge <- studentData %>%
 ```
 ## Correlation matrix
 
-To begin this process we first needed to determine what data was strongly correlated. Our definition of strongly correlated were any values that were greater the 0.7 and less the -0.7. These values were removed because they would not provide any new information to the model because they shared similarities to other values in the data set. The correlation table only captures variables that are numeric. Next, we selected all the pairs of variables that had values between 0.6 and 0.3, and -0.6 and -0.3. These pairs of values were then sorted through to find only the unique combinations. From the unique combination of correlated pairs, we only selected the pairs that were correlated to price. 
+To begin this process we first needed to determine what data was strongly correlated. Our definition of strongly correlated were any values that were greater the 0.7 and less the -0.7. These values were removed because they would not provide any new information to the model because they shared similarities to other values in the dataset. The correlation table only captures variables that are numeric. Next, we selected all the pairs of variables that had values between 0.6 and 0.3, and -0.6 and -0.3. These pairs of values were then sorted through to find only the unique combinations. From the unique combination of correlated pairs, we only selected the pairs that were correlated to price. 
 
 In addition to these numeric values we also included the categorical variables: race, zip code and school distrcit. 
 
@@ -1214,7 +1189,6 @@ res <- as.data.frame(cor(numericVars)) %>%
 rownames_to_column()
 
 #pivot longer and sort through list 
-
 A <- res %>%
   select(!c("bldgClass","toPredict")) %>%
   slice(-c(6,21)) %>%
@@ -1234,13 +1208,14 @@ corlist <- corlist %>%
   arrange(desc(value))
 
 #all odd numbers between 1 and 80
+# Removes duplicates pairs that come from correlation matrix
 keep <- c(1:nrow(corlist))
 keep <- which(keep %% 2 == 1)
 
 corlist <- corlist %>%
              slice(keep) 
 
-# includes all correlated with price
+# includes all variables correlated with price
 priceCor <- corlist %>%
   filter(rowname == "price")
 
@@ -1310,6 +1285,63 @@ studentData.training <- studentData.training %>%
 # Table of regression outputs
 modelsummary(reg1, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
 ```
+
+### Predicting on Unseen Data
+```{r message=FALSE, warning=FALSE}
+# Predict house prices for challenge dataset
+studentData.challenge <- studentData.challenge %>%
+  mutate(SalePrice.Predict = predict(reg.training, studentData.challenge))
+
+
+# Write challenge predictions to a csv
+# predictions <- studentData.challenge %>%
+#   st_drop_geometry() %>%
+#   select(MUSA_ID, SalePrice.Predict) %>%
+#   dplyr::rename(price = SalePrice.Predict) 
+# 
+# write.csv(predictions, "john2.csv")
+
+```
+
+### Map of Predicted home prices
+```{r}
+totalPredictions <- rbind(studentData.challenge, studentData.training)
+
+
+ggplot() +
+  geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
+  geom_sf(data = totalPredictions %>% filter(SalePrice.Predict< 1500000), aes(colour = SalePrice.Predict), 
+          show.legend = "point", size = .75) +
+  scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
+  labs(title="Predicted House Price, Boulder County Colorado") +
+  mapTheme()
+```
+
+### Predicted home prices as a function of actual home price
+```{r}
+studentData.training %>%
+  select(SalePrice.Predict, price) %>%
+  filter(price < 3000000) %>%
+  ggplot(aes(price, SalePrice.Predict)) +
+  geom_point(color = "orange") +
+  geom_abline(color = "dark green",
+              size = 1) + 
+  labs(title = "Predicted home prices as a function of actual home price") +
+  plotTheme()
+
+##################### OR ############################ 
+
+studentData.training %>%
+  select(SalePrice.Predict, price) %>%
+  ggplot(aes(price, SalePrice.Predict)) +
+  geom_point(color = "orange") +
+  geom_abline(color = "dark green",
+              size = 1) + 
+  labs(title = "Predicted home prices as a function of actual home price") +
+  plotTheme()
+  
+```
+
 
 ### Do prices and errors cluster - spatial lag & testing for SA in our current model
 ```{r, results='hold'}
@@ -1384,70 +1416,6 @@ test %>%
 ```
 
 
-### CHALLENGE SET
-```{r message=FALSE, warning=FALSE}
-# Predict house prices for challenge data set
-studentData.challenge <- studentData.challenge %>%
-  mutate(SalePrice.Predict = predict(reg.training, studentData.challenge))
-
-
-# Write challenge predictions to a csv
-# predictions <- studentData.challenge %>%
-#   st_drop_geometry() %>%
-#   select(MUSA_ID, SalePrice.Predict) %>%
-#   dplyr::rename(price = SalePrice.Predict) 
-# 
-# write.csv(predictions, "john2.csv")
-
-```
-
-### Predicted home prices as a function of actual home price
-```{r}
-studentData.training %>%
-  select(SalePrice.Predict, price) %>%
-  filter(price < 3000000) %>%
-  ggplot(aes(price, SalePrice.Predict)) +
-  geom_point(color = "orange") +
-  geom_abline(color = "dark green",
-              size = 1) + 
-  labs(title = "Predicted home prices as a function of actual home price") +
-  plotTheme()
-
-##################### OR ############################ 
-
-studentData.training %>%
-  select(SalePrice.Predict, price) %>%
-  ggplot(aes(price, SalePrice.Predict)) +
-  geom_point(color = "orange") +
-  geom_abline(color = "dark green",
-              size = 1) + 
-  labs(title = "Predicted home prices as a function of actual home price") +
-  plotTheme()
-  
-```
-
-
-
-### Map of Predicted home prices
-```{r}
-totalPredictions <- rbind(studentData.challenge, studentData.training)
-
-
-ggplot() +
-  geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
-  geom_sf(data = totalPredictions %>% filter(SalePrice.Predict< 1500000), aes(colour = SalePrice.Predict), 
-          show.legend = "point", size = .75) +
-  scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
-  labs(title="Predicted House Price, Boulder County Colorado") +
-  mapTheme()
-```
-
-```{r}
-weirdPred <- totalPredictions %>%
-  filter(SalePrice.Predict < 0)
-```
-
-
 ### Over/Under prediction through Racial lense
 ```{r}
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
@@ -1484,6 +1452,21 @@ Overall, this model is not very effective. Although the error in the model is ab
 # Conclusion
 
 # Appendix AKA Code hoarding because we have a problem
+
+### Block Groups
+```{r eval=FALSE, include=FALSE}
+# Read in census Block groups
+ acsBGCol.2019.sf <- get_acs(geography = "block group",
+         year = 2019,
+         variables = Variables$name, 
+         state="Colorado",
+         county= c("Boulder"),
+         geometry=T,
+         output = "wide") %>% 
+   st_transform(CO_statePlaneCentral) %>%
+   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
+```
+
 
 ### Drafts for Race data
 ```{r Race_dontrun, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
@@ -1655,7 +1638,20 @@ studentData <- studentData %>%
 #          border = 2)
 ```
 
-
+### Zoning Districts
+```{r}
+# # Locations of Zoning districts
+# ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
+# ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
+# zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
+#   st_transform(CO_statePlaneCentral)
+# 
+# ggplot() +
+#   geom_sf(data = st_union(acsTractsCol.2019.sf),
+#           fill = "transparent") +
+#   geom_sf(data = zoning) +
+#   labs(title = "Zoning Districts")
+```
 
 ### Rental Properties
 ```{r colorado_data, eval=FALSE, message=TRUE, warning=FALSE, include=FALSE}

@@ -26,35 +26,34 @@ Tasks to complete
 - [ ] Report
   - [X] Intro
   - [ ] Data
-	- [ ] Brief overview of data collection
+	- [X] Brief overview of data collection
 	- [ ] Table of summary statistics w/ variable descriptions, sorted by category (internal, amenities/public services, spatial structure)
-	- [ ] Correlation matrix
-	- [ ] 4 home price correlation scatter plots - looking for interesting open data
-		- [ ]
-		- [ ]
-		- [ ]
-		- [ ]
-	- [ ] 1 map of home prices (dependent variable)
-	- [ ] 3 maps of the 3 most interesting independent variables
-		- [ ]
-		- [ ]
-		- [ ]
-	- [ ] Any other charts/maps of interest
+	- [X] Correlation matrix
+	- [X] 4 home price correlation scatter plots - looking for interesting open data
+		- [X] Internal characteristics
+		- [X] Education nn's
+		- [X] Amenities nn's
+		- [X] Public services nn's
+	- [X] 1 map of home prices (dependent variable)
+	- [X] 3 maps of the 3 most interesting independent variables
+		- [X] Zip code
+		- [X] White / Black / Asian Quartiles
+	- [X] Any other charts/maps of interest
   - [ ] Methods
 	- [ ] Discussion of modeling methods for a lay-person
   - [ ] Results
-	- [ ] Split toPredict == 0 into training and test datasets
-	- [ ] Polished table of the summary for the model for the training set
+	- [X] Split toPredict == 0 into training and test datasets
+	- [X] Polished table of the summary for the model for the training set
 	- [ ] RESULTS OF CROSS-VALIDATION TESTS 
 		- [ ] Mean and Standard deviation MAE - use 100 folds and plot cross-validation MAE as a histogram
-	- [ ] Plot of predicted prices as a function of observed prices
-	- [ ] Map of residuals for test set
-		- [ ] Moran's I of test model
-		- [ ] Plot of spatial lag in errors
-	- [ ] Map of predicted values for all homes
-	- [ ] Map of MAPE by neighborhood for test set
-	- [ ] Scatterplot of MAPE (per neighborhood) as a function of mean price by neighborhood
-	- [ ] Test generalizability on two groups (i.e. race/income)
+	- [X] Plot of predicted prices as a function of observed prices
+	- [X] Map of residuals for test set
+		- [X] Moran's I of test model
+		- [X] Plot of spatial lag in errors
+	- [X] Map of predicted values for all homes
+	- [X] Map of MAPE by neighborhood for test set
+	- [X] Scatterplot of MAPE (per neighborhood) as a function of mean price by neighborhood
+	- [X] Test generalizability on two groups (i.e. race/income)
   - [ ] Discussion
 	- [ ] Effective?
 	- [ ] More interesting variables?
