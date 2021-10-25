@@ -55,13 +55,13 @@ Tasks to complete
 	- [X] Scatterplot of MAPE (per neighborhood) as a function of mean price by neighborhood
 	- [X] Test generalizability on two groups (i.e. race/income)
   - [ ] Discussion
-	- [ ] Effective?
-	- [ ] More interesting variables?
-	- [ ] How much variation could be explained?
-	- [ ] What were the more important features?
-	- [ ] Causes of error in predictions
-	- [ ] Account for spatial variation in prices?
-	- [ ] Where does model predict well? poorly? Why?
-  - [ ] Conclusion
-	- [ ] Recommend to Zillow?
-	- [ ] Improvements?
+	- [X] Effective?
+	- [X] More interesting variables?
+	- [X] How much variation could be explained?
+	- [X] What were the more important features?
+	- [X] Causes of error in predictions
+	- [X] Account for spatial variation in prices?
+	- [X] Where does model predict well? poorly? Why?
+  - [X] Conclusion
+	- [X] Recommend to Zillow?
+	- [X] Improvements?
