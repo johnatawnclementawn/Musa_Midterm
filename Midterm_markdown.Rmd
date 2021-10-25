@@ -13,7 +13,7 @@ output:
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
-pacman::p_load(caret, ckanr, FNN, ggcorplot, grid, gridExtra, gtools, httr, kableExtra, modelsummary, tidyverse, tidycensus, sf,  spdep, tmap, viridis, zipcodeR)
+pacman::p_load(caret, ckanr, FNN, ggcorplot, grid, gridExtra, gtools, httr, kableExtra, modelsummary, tidyverse, tidycensus, sf,  spdep, stargazer, tmap, viridis, zipcodeR)
 library(ggcorrplot)
 
 options(scipen =  "sf")
@@ -66,7 +66,7 @@ The fixed effects data that we selected include the 2019 census tract data, boun
 
 The first fixed effect variables that we looked at was census tract. With the census tract data, we pulled variables on Race and Median age. Race was important as a fixed effect to predict housing price, people with similar racial categories often move into similar spaces. Age was important because people may be interested moving into areas with similarly aged people.
 
-```{r tidycensus_2019, echo=FALSE, message=FALSE, warning=FALSE, results='hold'}
+```{r tidycensus_2019, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 
 #variables on frequency of Race
 Variables <- load_variables(2019,
@@ -157,7 +157,7 @@ ggplot() +
  geom_sf(data = acsTractsCol.2019.sf)+
  labs(title = "Census Tracts, Boulder County, Colorado")
 
- 
+
 # Assign a school district to each home
 # Help document: https://gis.stackexchange.com/questions/133625/checking-if-points-fall-within-polygon-shapefile
 studentData <- studentData %>%
@@ -167,6 +167,7 @@ studentData <- studentData %>%
     #schoolDist_name = if_else(is.na(District), "", acsSchoolDistrctssCol.2019.sf$NAME[District])
 
 ```
+
 
 ### Boulder City Fixed Effect
 
@@ -221,7 +222,7 @@ studentData <- studentData %>%
   )
 
 
-#ggplot() +
+# ggplot() +
 #  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
 #          fill = "red") +
 #  geom_sf(data = st_union(acsTractsCol.2019.sf),
@@ -313,7 +314,7 @@ Although it is possible to pull buffered data to analyze data by fixed effects, 
 ### Flood Data
 Other factors that were considered in this analysis was flood plain data. As storms become stronger due to climate change, homeowners are likely to be more sensitive to the proximity of a house to a flood plain. For this study, 100-year flood plain data for the State of Colorado were retrieved from FEMA and reduced to Boulder County. We then turned the flood plain regions into point data to calculate the nearest neighbor points for each house. However, it may have been better to process the data as a fixed effect by just determining if a house is within our outside of a 100-year floodplain. 
 
-```{r floodplains, echo=TRUE, message=FALSE, warning=FALSE}
+```{r floodplains, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
 # Locations of 100 Year floodplain within Boulder County
 # Data originally for the whole state, subsetted to Boulder County via st_intersect
 ## https://geo.colorado.edu/catalog/47540-5ca228ffd43267000b8c7448
@@ -342,8 +343,8 @@ flood_pts <- st_cast(flood_pts, 'POINT')
 ggplot() +
   geom_sf(data = st_union(acsTractsCol.2019.sf),
           fill = "transparent") +
-  geom_sf(data = flood_pts, aes(color = "Blue")) +
-  geom_sf(data = studentData)
+  geom_sf(data = studentData) +
+  geom_sf(data = flood_pts, color = "blue")
 
 ```
 
@@ -364,7 +365,7 @@ Col_Library <- st_read("https://opendata.arcgis.com/datasets/7f4ea25ba87345e380d
   st_transform(st_crs(acsTractsCol.2019.sf)) %>%
   select(c(Name, geometry))
 
-Buffer_Library <- st_buffer(Col_Library, 10560) %>%
+Buffer_Library <- st_buffer(Col_Library, 5280) %>%
       mutate(Legend = "Buffer") %>%
       dplyr::select(Legend)
 
@@ -377,7 +378,7 @@ ggplot() +
   geom_sf(data = Col_Library) +
   geom_sf(data = UnionBuffer_Library,
           fill = "transparent") +
-  labs(title = "library")
+  labs(title = "Library locations with 1 mile buffer regions")
 
 ```
  
@@ -512,7 +513,7 @@ Buffer_Dispensaries <- st_union(st_buffer(Dispensaries, 5280) %>%
  
 # Methods
 
-##Feature Engineering
+## Feature Engineering
 
 Once all the data were imported, the data were then transformed into a variety of ways to understand fixed effects and geographic distances.
 
@@ -878,9 +879,9 @@ st_drop_geometry(studentData) %>%
   plotTheme()
 
 ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf,
-          aes(fill = White_Quartile)) +
-  geom_sf(data = studentData %>% na.omit() %>% filter(price < 5000000), 
+  geom_sf(data = acsZipsCol.2019.sf,
+          aes(fill = GEOID)) +
+  geom_sf(data = studentData %>% filter(price <= 5000000), 
           aes(color = price)) +
   scale_color_steps(low="white", high="black", n.breaks = 5)
   labs(title = "White Quartile") +
@@ -1142,6 +1143,16 @@ studentData.training <- studentData %>%
 studentData.challenge <- studentData %>%
     filter(toPredict == 1)
 ```
+
+## Data after feature engineering
+Here is a summary table of all of our variables after feature engineering
+```{r summary_table, echo=FALSE, results="asis"}
+stargazer(data = studentData, type = "html", summary = TRUE, header = FALSE,
+          title = "Descriptive statistics", summary.stat = c("n", "mean", "sd", "min", "max"))
+```
+
+
+
 ## Correlation matrix
 
 To begin this process we first needed to determine what data was strongly correlated. Our definition of strongly correlated were any values that were greater the 0.7 and less the -0.7. These values were removed because they would not provide any new information to the model because they shared similarities to other values in the dataset. The correlation table only captures variables that are numeric. Next, we selected all the pairs of variables that had values between 0.6 and 0.3, and -0.6 and -0.3. These pairs of values were then sorted through to find only the unique combinations. From the unique combination of correlated pairs, we only selected the pairs that were correlated to price. 
@@ -1231,7 +1242,7 @@ keep <- append(keep, categorical)
 
 ```
 
-### Multiple regression
+## Multiple regression
 
 ```{r message=FALSE, warning=FALSE, results='hold'}
 studentData.training %>%
@@ -1240,7 +1251,9 @@ studentData.training %>%
 reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
        dplyr::select(keep))
 
-summary(reg1)
+# summary(reg1)
+
+stargazer(data = reg1, type = "html", header = FALSE, title = "Regression Results")
 ```
 # Results
 
