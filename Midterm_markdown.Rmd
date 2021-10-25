@@ -674,7 +674,7 @@ ggplot() +
   mapTheme()
 ```
 The following figure illustrates the correlation between house price, house age, how recently a house was improved (improvement age), and total square finished square feet. If a house has not been improved since it was built, improvement age will be 0. 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
   filter(price <= 5000000, age < 500) %>%
@@ -689,7 +689,7 @@ st_drop_geometry(studentData) %>%
 
 ### Nearest Neighbor Averages Education
 For this indicator, all nearest neighbors from 1-5 were selected and averaged. This data was than summarized to find the average per MUSA code and it's associated price. These prices were than selected and plotted in the following charts. As expected the larger the average of the education variables nearest neighbor the lower the price of the property. Phrased differently, the further the property was from an educational institution the lower the price. 
-```{r NN_Indicator_Education, echo=FALSE, message=FALSE, warning=FALSE}
+```{r NN_Indicator_Education, echo=TRUE, message=FALSE, warning=FALSE}
 
 bind_rows(
   st_drop_geometry(studentData) %>%
@@ -746,7 +746,7 @@ bind_rows(
 
 ### Nearest Neighbors Averages Amenities
 The amenities indicator also calculated the nearest neighbors from 1-5 and summarized by MUSA code and its associated price. It also found that the further away an amenity is from the property the lower the property value.
-```{r NN_Indicator_Amenities, echo=FALSE, message=FALSE, warning=FALSE}
+```{r NN_Indicator_Amenities, echo=TRUE, message=FALSE, warning=FALSE}
 bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max(na.omit(studentData$price))) %>%
@@ -800,7 +800,7 @@ bind_rows(
 
 ### Nearest Neighbors Averages Public Services
 THe last nearest neighbor indicator was public services. THis indicator serves the same purpose that the Amenities and Education indicator serves. The Public Services indicator showed that within the first nearest neighbor there is no decrease in price based on the distance from a public amenity; however, beyond the first nearest neighbor there is a difference in price. 
-```{r NN_Indicator_PubliCServices, echo=FALSE, message=FALSE, warning=FALSE}
+```{r NN_Indicator_PubliCServices, echo=TRUE, message=FALSE, warning=FALSE}
 bind_rows(
   st_drop_geometry(studentData) %>%
   filter(price < max(na.omit(studentData$price))) %>%
@@ -856,7 +856,7 @@ bind_rows(
 
 From the school district data, there are differences between different school districts and the price of the property. For example, district 1 and district four have much higher property values than district three and two. This bar graph shows that in our model, we should consider the role the school district has in predicting the price of the property. 
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, District) %>%
   filter(price <= 5000000) %>%
@@ -870,7 +870,7 @@ st_drop_geometry(studentData) %>%
 While it can be argued the zip code is correlated with school district, zip codes provide more nuanced data and are more publicly discussed than are census tracts. In this case there are a range of property price differences from each of the zip codes. Zip30 and and zip1 have higher values in comparison to the other zips. It is unclear if this is a random trend; however, there are stark enough differences in price, that it should be considered in the model.
 
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, Zip) %>%
   filter(price <= 5000000) %>%
@@ -883,8 +883,8 @@ ggplot() +
           aes(fill = GEOID)) +
   geom_sf(data = studentData %>% filter(price <= 5000000), 
           aes(color = price)) +
-  scale_color_steps(low="white", high="black", n.breaks = 5)
-  labs(title = "White Quartile") +
+  scale_color_steps(low="white", high="black", n.breaks = 5) +
+  labs(title = "House price by Zip code") +
   mapTheme()
 
 ```
@@ -895,7 +895,7 @@ In engineering new data, we transformed census tracts racial categories by quart
 
 #### White Quartile
 The white quartile seemed to contradict general trends [CITE]. It appears that the less white people there were the higher the price of the property.  
-```{r echo=FALSE}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, White_Quartile) %>%
   filter(price <= 5000000) %>%
@@ -917,7 +917,7 @@ ggplot() +
 #### Black Quartile
 
 In contrast, to Black populations, in census tracts where there were median amounts of Black people, the housing prices were higher. 
-```{r}
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, Black_Quartile) %>%
   filter(price <= 5000000) %>%
@@ -938,7 +938,7 @@ ggplot() +
 #### Asian Quartile
 The Asian Qaurtile provided the most stark differences in property values. Similar to white populations, where there were less Asians showed to be higher prices; however, it is important to note that in areas with many Asians the price still seemed to be high. 
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, Asian_Quartile) %>%
   filter(price <= 5000000) %>%
@@ -985,9 +985,6 @@ ggplot() +
 
 Although this report has brought about some fascinating findings around race, the intent of this report is to portray the differences in price across race and how these findings can be used to inform our model. It is clear that race is a factor in our model, and as such it will be included in the final predictive model. 
 
-## Predictive Model Development
-
-To develop our pricing model, we will be using multiple regression and cross-validation & goodness of fit to validate our model. 
 
 ```{r message=FALSE, warning=FALSE, results='hold'}
 # Find the average distance for nearest neighbors (1 thru 5) for three categories: Education, Amenities, and Public Services
@@ -1151,9 +1148,12 @@ stargazer(data = studentData, type = "html", summary = TRUE, header = FALSE,
           title = "Descriptive statistics", summary.stat = c("n", "mean", "sd", "min", "max"))
 ```
 
+## Predictive Model Development
+
+To develop our pricing model, we used multiple regression and cross-validation & goodness of fit to validate our model. This process consists of developing an equation that incorporates the variables for our internal characteristics, public services and amenities, and spatial process (fixed-effects) which draws the line of best fit (a line through the middle) of the dataset when it is plotted. Then, that equation is tested using various validation methods. 
 
 
-## Correlation matrix
+### Correlation matrix
 
 To begin this process we first needed to determine what data was strongly correlated. Our definition of strongly correlated were any values that were greater the 0.7 and less the -0.7. These values were removed because they would not provide any new information to the model because they shared similarities to other values in the dataset. The correlation table only captures variables that are numeric. Next, we selected all the pairs of variables that had values between 0.6 and 0.3, and -0.6 and -0.3. These pairs of values were then sorted through to find only the unique combinations. From the unique combination of correlated pairs, we only selected the pairs that were correlated to price. 
 
@@ -1242,9 +1242,9 @@ keep <- append(keep, categorical)
 
 ```
 
-## Multiple regression
+### Multiple regression
 
-```{r message=FALSE, warning=FALSE, results='hold'}
+```{r message=FALSE, warning=FALSE, results='hide'}
 studentData.training %>%
   select(keep)
 
@@ -1255,6 +1255,7 @@ reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>%
 
 stargazer(data = reg1, type = "html", header = FALSE, title = "Regression Results")
 ```
+
 # Results
 
 ### Testing accuracy using MAE & MAPE
@@ -1276,7 +1277,7 @@ keep <- append(keep, "District")
 reg.training <- lm(price ~ ., data = st_drop_geometry(training) %>% 
                                     dplyr::select(keep))
 
-summary(reg.training)
+#summary(reg.training)
 
 test <- test %>%
   mutate(SalePrice.Predict = predict(reg.training, test),
@@ -1290,17 +1291,18 @@ mape <- mean(test$SalePrice.APE, na.rm=TRUE)
 print(mape)
 
 
+# Table of regression outputs
+modelsummary(reg.training, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
+```
+
+### Predicting on Unseen Data
+The code below uses the model we have developed to calculate the predicted house price for all homes in our dataset.
+```{r message=FALSE, warning=FALSE}
+
 # Predict house prices for all training data
 studentData.training <- studentData.training %>%
   mutate(SalePrice.Predict = predict(reg.training, studentData.training))
 
-
-# Table of regression outputs
-modelsummary(reg1, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
-```
-
-### Predicting on Unseen Data
-```{r message=FALSE, warning=FALSE}
 # Predict house prices for challenge dataset
 studentData.challenge <- studentData.challenge %>%
   mutate(SalePrice.Predict = predict(reg.training, studentData.challenge))
@@ -1320,38 +1322,55 @@ studentData.challenge <- studentData.challenge %>%
 ```{r}
 totalPredictions <- rbind(studentData.challenge, studentData.training)
 
-
-ggplot() +
-  geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
-  geom_sf(data = totalPredictions %>% filter(SalePrice.Predict< 1500000), aes(colour = SalePrice.Predict), 
-          show.legend = "point", size = .75) +
-  scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
-  labs(title="Predicted House Price, Boulder County Colorado") +
-  mapTheme()
+grid.arrange(ncol=2,
+  ggplot() +
+    geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
+    geom_sf(data = totalPredictions %>% filter(SalePrice.Predict< 1500000), aes(colour = SalePrice.Predict), 
+            show.legend = "point", size = .75) +
+    scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
+    labs(title="Predicted House Price,\nBoulder County Colorado") +
+    mapTheme(),
+  ggplot() +
+    geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
+    geom_sf(data = totalPredictions, aes(colour = SalePrice.Predict), 
+            show.legend = "point", size = .75) +
+    scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
+    labs(title="Predicted House Price,\nBoulder County Colorado",
+          caption = paste0("Includes very high house prices")
+         ) +
+    mapTheme()
+  )
 ```
 
 ### Predicted home prices as a function of actual home price
+These figures illustrate that as houses is no longer effective at predicting house prices above $2 million. Perhaps this is because most of the training data are for houses that are more affordable, and therefore the model is able to more accurately predict those prices. 
 ```{r}
+
 studentData.training %>%
   select(SalePrice.Predict, price) %>%
   filter(price < 3000000) %>%
   ggplot(aes(price, SalePrice.Predict)) +
-  geom_point(color = "orange") +
-  geom_abline(color = "dark green",
-              size = 1) + 
-  labs(title = "Predicted home prices as a function of actual home price") +
+    geom_point(color = "orange") +
+    geom_abline(color = "dark green",
+                size = 1 ) + 
+    labs(title = "Predicted home prices as a function of actual home price", 
+         x = expression("Actual house price($)"), 
+         y = expression("Predicted house price($)") ) +
   plotTheme()
 
-##################### OR ############################ 
 
 studentData.training %>%
   select(SalePrice.Predict, price) %>%
   ggplot(aes(price, SalePrice.Predict)) +
-  geom_point(color = "orange") +
-  geom_abline(color = "dark green",
-              size = 1) + 
-  labs(title = "Predicted home prices as a function of actual home price") +
+    geom_point(color = "orange") +
+    geom_abline(color = "dark green",
+                size = 1) + 
+    labs(title = "Predicted home prices as a function of actual home price",
+          caption = paste0("Includes very high house prices"),
+          x = expression("Actual house price($)"), 
+          y = expression("Predicted house price($)")) +
   plotTheme()
+
   
 ```
 
@@ -1377,6 +1396,7 @@ test %>%
 
 
 ### Moran's I
+Moran's I is a test for spatial autocorrelation in the errors of our model. Spatial autocorrelation is the clustering of similar things in space. If the errors of the model are clustered in space, it means the model is not able to fully account for the clustering of house prices. The figure below shows the clustering of randomized errors in the gray and the observed Moran's I of our model in orange. In and ideal scenario, the observed Moran's I line would be located within the distribution of the randomized Moran's I distribution. However, it is evident that there is still spatial autocorrelation in house prices that is unaccounted for in our model. 
 ```{r, results='hold'}
 moranTest <- moran.mc(test$SalePrice.Error, 
                       spatialWeights.test, nsim = 999)
@@ -1393,6 +1413,8 @@ ggplot(as.data.frame(moranTest$res[c(1:999)]), aes(moranTest$res[c(1:999)])) +
 ```
 
 ### MAPE by neighborhood
+Another method of testing the predictive power of our model is visualizing the Mean Absolute Percent Errors (MAPE) by spatial unit, in this case, zip codes. MAPE's that are low are considered to be better as it indicates that there is less error in the model. The figure below illustrates that there are zip codes in which the model performs much better than others. Perhaps this is linked to the model's reduced effectiveness with higher-priced homes. This conclusion is backed up by the scatter plot below. The neighborhood with the highest average price has the highest MAPE.
+
 ```{r}
 test <- test %>%
   st_join(., acsZipsCol.2019.sf, join=st_intersects) %>%
@@ -1410,7 +1432,7 @@ st_drop_geometry(test) %>%
       geom_sf(data = test, colour = "black", size = .5) +
       scale_fill_gradient(low = palette5[1], high = palette5[5],
                           name = "MAPE") +
-      labs(title = "Mean test set MAPE by neighborhood") +
+      labs(title = "Mean test set MAPE by zip code") +
       mapTheme()
 
 # Scatter plot of MAPE by neighborhood as a function of mean price by neighborhood
@@ -1423,13 +1445,14 @@ test %>%
   ggplot(aes(mean.Price, mean.MAPE)) +
     geom_point(color = "orange") +
     geom_abline(color = "dark green", size = 1) + 
-  labs(title = "MAPE as a function of average home prices by Neighborhood") +
+  labs(title = "MAPE as a function of average home prices by zip code") +
   plotTheme()
 
 ```
 
 
-### Over/Under prediction through Racial lense
+### Over/Under prediction through racial and economic lense
+A final method of testing the model's predictive power is to test its generalizability across different demographic and economic groups. To do this, we isolate communities that have high and low populations of white individuals and income, and measure the compare the MAPE’s in across those axes.
 ```{r}
 acsZipsCol.2019.sf <- acsZipsCol.2019.sf %>%
   mutate(percentWhite = White_pop / Total_pop,
@@ -1652,7 +1675,7 @@ studentData <- studentData %>%
 ```
 
 ### Zoning Districts
-```{r}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 # # Locations of Zoning districts
 # ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
 # ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
