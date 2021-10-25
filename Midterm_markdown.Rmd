@@ -1483,11 +1483,16 @@ st_join(test, acsZipsCol.2019.sf) %>%
 
 # Discussion
 
-Overall, this model is not very effective. Although the error in the model is about `r mean(test$SalePrice.APE) * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. 
+Overall, this model is not very effective. Although the error in the model is about `r mean(test$SalePrice.APE) * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties(`r paste0("$",mean(test$SalePrice.AbsError, na.rm=TRUE))`). The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed.   
+Further, the model seems is better at predicting lower value homes than higher value homes. It consistently underpredicts those homes at higher actual values. Perhaps this could be remedied by gathering more data on those higher priced homes or using a method of regression other than OLS, as OLS tends to predict well on values centered around the mean, but not the outliers.
+
 
 # Conclusion
 
-# Appendix AKA Code hoarding because we have a problem
+We would not recommend this model over Zillow’s existing model for a few reasons. As mentioned above, there are issues with the model’s ability to predict on higher value houses and account for existing spatial autocorrelation. Further, the model’s errors are much higher than [Zillow’s advertised error](https://www.zillow.com/z/zestimate/). Further, we have not tested this model outside of Boulder. We do not know if this model will be generalizable to other markets.
+
+# Appendix 
+AKA Code hoarding because we have a problem
 
 ### Block Groups
 ```{r eval=FALSE, include=FALSE}
