@@ -27,7 +27,7 @@ Tasks to complete
   - [X] Intro
   - [ ] Data
 	- [X] Brief overview of data collection
-	- [ ] Table of summary statistics w/ variable descriptions, sorted by category (internal, amenities/public services, spatial structure)
+	- [X] Table of summary statistics w/ variable descriptions, sorted by category (internal, amenities/public services, spatial structure)
 	- [X] Correlation matrix
 	- [X] 4 home price correlation scatter plots - looking for interesting open data
 		- [X] Internal characteristics
@@ -39,13 +39,13 @@ Tasks to complete
 		- [X] Zip code
 		- [X] White / Black / Asian Quartiles
 	- [X] Any other charts/maps of interest
-  - [ ] Methods
+  - [X] Methods
 	- [ ] Discussion of modeling methods for a lay-person
   - [ ] Results
 	- [X] Split toPredict == 0 into training and test datasets
 	- [X] Polished table of the summary for the model for the training set
-	- [ ] RESULTS OF CROSS-VALIDATION TESTS 
-		- [ ] Mean and Standard deviation MAE - use 100 folds and plot cross-validation MAE as a histogram
+	- [X] RESULTS OF CROSS-VALIDATION TESTS 
+		- [X] Mean and Standard deviation MAE - use 100 folds and plot cross-validation MAE as a histogram
 	- [X] Plot of predicted prices as a function of observed prices
 	- [X] Map of residuals for test set
 		- [X] Moran's I of test model
