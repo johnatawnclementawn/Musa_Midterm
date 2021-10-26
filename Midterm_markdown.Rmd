@@ -13,7 +13,7 @@ output:
 ```{r setup, include=FALSE, message=FALSE, warning=FALSE}
 
 knitr::opts_chunk$set(warning = FALSE)
-pacman::p_load(caret, ckanr, FNN, ggcorplot, grid, gridExtra, gtools, httr, kableExtra, modelsummary, tidyverse, tidycensus, sf,  spdep, stargazer, tmap, viridis, zipcodeR)
+pacman::p_load(caret, ckanr, FNN, ggcorplot, grid, gridExtra, gtools, httr, kableExtra, modelsummary, tidyverse, tidycensus, sf,  spdep, stargazer, tmap, viridis, zipcodeR, DT)
 library(ggcorrplot)
 
 options(scipen =  "sf")
@@ -26,7 +26,7 @@ palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
 
 # Introduction
 
-  The intent of this report is to use local intelligence to improve zillow's predictive model utilizing only OLS regression. What we did to improve the model was include [INSERT VARAIBLES HERE].
+  The intent of this report is to use local intelligence to improve Zillow’s predictive model utilizing only OLS regression. We began with the internal characteristics of the house, such as number of finished square feet, the number of bedrooms, and the number of bathrooms. We then engineered features that measured the average distance of amenities and public services such as grocery stores, fire departments, and schools.  Further, we accounted for the spatial processes at play by creating fixed effects for the zip code, school district, and census tract in which the house resided. The resulting model was not as predicatively powerful as the Zillow Zestimate, and as such, we would recommend further development and testing on this model before it is deployed to the public.
 
 # Data
   
@@ -659,8 +659,8 @@ max <- max(
 
 As the data is being explored, we removed the outlier `max`. This point would make some of the graphs challenging to view, because it would force the scale to be larger and as such more difficult to view the other points, because it does not accurately follow the trend of the other data.
 
-### Internal Characteristics
-The following figure illustrates the spatial clustering of home prices by showing the price per finished square foot in the house. It is evident that there is clustering of higher-priced homes in and around the City of Boulder. We will need to account for this in our predictive model.
+### Internal Characteristics   
+The following figure below illustrates the spatial clustering of home prices by showing the price per finished square foot in the house. It is evident that there is clustering of higher-priced homes in and around the City of Boulder. We will need to account for this in our predictive model.
 ```{r}
 ggplot() +
   geom_sf(data = acsTractsCol.2019.sf, fill = "grey40") +
@@ -672,7 +672,10 @@ ggplot() +
   labs(title="Price Per Square Foot, Boulder County Colorado") +
   mapTheme()
 ```
-The following figure illustrates the correlation between house price, house age, how recently a house was improved (improvement age), and total square finished square feet. If a house has not been improved since it was built, improvement age will be 0. 
+
+
+
+The following scatterplot below illustrates the correlation between house price, house age, how recently a house was improved (improvement age), and total square finished square feet. If a house has not been improved since it was built, improvement age will be 0. 
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>% 
   dplyr::select(price, TotalFinishedSF, age, iprvmntAge) %>%
@@ -798,7 +801,7 @@ bind_rows(
 ```
 
 ### Nearest Neighbors Averages Public Services
-THe last nearest neighbor indicator was public services. THis indicator serves the same purpose that the Amenities and Education indicator serves. The Public Services indicator showed that within the first nearest neighbor there is no decrease in price based on the distance from a public amenity; however, beyond the first nearest neighbor there is a difference in price. 
+The last nearest neighbor indicator was public services. THis indicator serves the same purpose that the Amenities and Education indicator serves. The Public Services indicator showed that within the first nearest neighbor there is no decrease in price based on the distance from a public amenity; however, beyond the first nearest neighbor there is a difference in price. 
 ```{r NN_Indicator_PubliCServices, echo=TRUE, message=FALSE, warning=FALSE}
 bind_rows(
   st_drop_geometry(studentData) %>%
@@ -893,7 +896,7 @@ ggplot() +
 In engineering new data, we transformed census tracts racial categories by quartile to take into account how people from similar racial and ethnic backgrounds move to the similar locations.
 
 #### White Quartile
-The white quartile seemed to contradict general trends [CITE]. It appears that the less white people there were the higher the price of the property.  
+The white quartile seemed to contradict general trends. It appears that the less white people there were the higher the price of the property.  
 ```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, White_Quartile) %>%
@@ -954,18 +957,11 @@ ggplot() +
   mapTheme()
 ```
 
-```{r eval=FALSE, include=FALSE}
-st_drop_geometry(studentData) %>%
-  select(price, White_Quartile ) %>%
-  filter(price <= 5000000) %>%
-  ggplot(aes(price, White_Quartile )) +
-  geom_bar(position = "dodge", stat = "summary", fun.y = "mean")
-
 
 #### American Indian Quartile
-#Finally in populations where there were less American Indians, there tended to be higher housing prices.
+Finally in populations where there were less American Indians, there tended to be higher housing prices.
 
-```{r}
+```{r echo=TRUE, message=FALSE, warning=FALSE}
 st_drop_geometry(studentData) %>%
   select(price, American_Indian_Quartile) %>%
   filter(price <= 5000000) %>%
@@ -1137,6 +1133,9 @@ A <- bind_rows(
 
 studentData <- left_join(studentData, A, by = "MUSA_ID")
 
+studentData$Edu_mean_distance <- as.integer(studentData$Edu_mean_distance)
+studentData$amenities_mean_distance <- as.integer(studentData$amenities_mean_distance)
+studentData$PS_mean_distance <- as.integer(studentData$PS_mean_distance)
 
 studentData.training <- studentData %>%
     filter(toPredict == 0)
@@ -1147,14 +1146,80 @@ studentData.challenge <- studentData %>%
 
 ## Data after feature engineering
 Here is a summary table of all of our variables after feature engineering
+
+### Internal Characteristics
+
+Not all internal characteristics were added because they were categorical. The results would not yield meaningful analysis.
 ```{r summary_table, echo=FALSE, results="asis"}
-stargazer(data = studentData, type = "html", summary = TRUE, header = FALSE,
-          title = "Descriptive statistics", summary.stat = c("n", "mean", "sd", "min", "max"))
+keep <- colnames(studentData[1:42])
+
+A <- na.omit(studentData) %>%
+  relocate(MUSA_ID,1) %>%
+  select(1, where(is.numeric)) %>%
+  st_drop_geometry() %>%
+  pivot_longer(cols = 2:92,
+               names_to = "Variables",
+               values_to = "Values") %>%
+  filter(Variables %in% keep) %>%
+  group_by(Variables) %>%
+    summarize(n = n(),
+              mean = mean(Values),
+              sd = sd(Values),
+              min = min(Values),
+              max = max(Values))
+
+datatable(A)
+```
+
+### Amenities and Public Services
+```{r Amenities_PS_Summary}
+keep <- colnames(studentData[59:121])
+
+A <- na.omit(studentData) %>%
+  relocate(MUSA_ID,1) %>%
+  select(1, where(is.numeric)) %>%
+  st_drop_geometry() %>%
+  pivot_longer(cols = 2:92,
+               names_to = "Variables",
+               values_to = "Values") %>%
+  filter(Variables %in% keep) %>%
+  group_by(Variables) %>%
+    summarize(n = n(),
+              mean = mean(Values),
+              sd = sd(Values),
+              min = min(Values),
+              max = max(Values))
+
+datatable(A)
+
+```
+
+### Spatial Structures and Fixed Effects
+
+Not all spatial structures were added because they were categorical. The results would not yield meaningful analysis.
+```{r Amenities_SS_Summary}
+keep <- colnames(studentData[44:58])
+
+A <- na.omit(studentData) %>%
+  relocate(MUSA_ID,1) %>%
+  select(1, where(is.numeric)) %>%
+  st_drop_geometry() %>%
+  pivot_longer(cols = 2:92,
+               names_to = "Variables",
+               values_to = "Values") %>%
+  filter(Variables %in% keep) %>%
+  group_by(Variables) %>%
+    summarize(n = n(),
+              mean = mean(Values),
+              sd = sd(Values),
+              min = min(Values),
+              max = max(Values))
+
+datatable(A)
+
 ```
 
 ## Predictive Model Development
-
-To develop our pricing model, we used multiple regression and cross-validation & goodness of fit to validate our model. This process consists of developing an equation that incorporates the variables for our internal characteristics, public services and amenities, and spatial process (fixed-effects) which draws the line of best fit (a line through the middle) of the dataset when it is plotted. Then, that equation is tested using various validation methods. 
 
 
 ### Correlation matrix
@@ -1248,19 +1313,7 @@ keep <- append(keep, categorical)
 
 ### Multiple regression
 
-```{r message=FALSE, warning=FALSE, results='hide'}
-studentData.training %>%
-  select(keep)
-
-reg1 <- lm(price ~ ., data = st_drop_geometry(studentData.training) %>% 
-       dplyr::select(keep))
-
-# summary(reg1)
-
-stargazer(data = reg1, type = "html", header = FALSE, title = "Regression Results")
-```
-
-# Results
+To develop our pricing model, we used multiple regression and cross-validation & goodness of fit to validate our model. This process consists of developing an equation that incorporates the variables for our internal characteristics, public services and amenities, and spatial process (fixed-effects) which draws the line of best fit (a line through the middle) of the dataset when it is plotted. Then, that equation is tested using various validation methods. 
 
 ### Testing accuracy using MAE & MAPE
 ```{r message=FALSE, warning=FALSE, results='hold'}
@@ -1299,6 +1352,21 @@ print(mape)
 modelsummary(reg.training, output = "kableExtra", stars = TRUE, gof_omit = 'IC|Log|AIC|BIC')
 ```
 
+### Cross-Validation
+Cross-validation provided similar values with R-squared and Mean Absolute Error which would be consistent with our model not being effective because of the Mean Absolute Error. 
+
+```{r Cross_Validation}
+fitControl <- trainControl(method = "cv", number = 100)
+set.seed(825)
+
+reg.cv <- 
+  train(price ~ ., data = st_drop_geometry(studentData.training) %>% 
+                                dplyr::select(keep), 
+     method = "lm", trControl = fitControl, na.action = na.pass)
+
+reg.cv
+```
+
 ### Predicting on Unseen Data
 The code below uses the model we have developed to calculate the predicted house price for all homes in our dataset.
 ```{r message=FALSE, warning=FALSE}
@@ -1323,6 +1391,8 @@ studentData.challenge <- studentData.challenge %>%
 ```
 
 ### Map of Predicted home prices
+The two maps below include predicted price.
+
 ```{r}
 totalPredictions <- rbind(studentData.challenge, studentData.training)
 
@@ -1348,6 +1418,7 @@ grid.arrange(ncol=2,
 
 ### Predicted home prices as a function of actual home price
 These figures illustrate that as houses is no longer effective at predicting house prices above $2 million. Perhaps this is because most of the training data are for houses that are more affordable, and therefore the model is able to more accurately predict those prices. 
+
 ```{r}
 
 studentData.training %>%
@@ -1378,8 +1449,24 @@ studentData.training %>%
   
 ```
 
+### Map of residuals for the test set
+The figure below maps the residuals, the difference betweeen the predicted price and actual price. In brief, this is an indicator of the model's accuracy. 
+
+```{r}
+ggplot() +
+    geom_sf(data = acsZipsCol.2019.sf, fill = "grey40") +
+    geom_sf(data = test, aes(colour = SalePrice.Error), 
+            show.legend = "point", size = .75) +
+    scale_color_steps(low="yellow", high="red", n.breaks = 8)  +
+    labs(title="Sale Price error (Residual),\nBoulder County Colorado",
+          caption = paste0("Includes very high house prices")
+         ) +
+    mapTheme()
+```
+
 
 ### Do prices and errors cluster - spatial lag & testing for SA in our current model
+This graph belows shows that there is still spatial autocorrelation that has not been accounted for. As the lag error price increases or decreases the home prices around it should also move similarly.
 ```{r, results='hold'}
 coords.test <-  st_coordinates(test) 
 
@@ -1389,15 +1476,17 @@ spatialWeights.test <- nb2listw(neighborList.test, style="W")
 
 test %>% 
   mutate(lagPriceError = lag.listw(spatialWeights.test, SalePrice.Error)) %>%
-  ggplot(aes(price, SalePrice.Predict)) +
+  ggplot(aes(lagPriceError, SalePrice.Error)) +
   geom_point(color = "orange") +
   geom_abline(color = "dark green",
               size = 1) + 
-  labs(title = "Predicted Price plotted on Actual Price") +
+  geom_vline(xintercept = 0, 
+             color = "red",
+             linetype = "dotted") +
+  labs(title = "Error as a function of the spatial lag of price") +
   plotTheme()
 
 ```
-
 
 ### Moran's I
 Moran's I is a test for spatial autocorrelation in the errors of our model. Spatial autocorrelation is the clustering of similar things in space. If the errors of the model are clustered in space, it means the model is not able to fully account for the clustering of house prices. The figure below shows the clustering of randomized errors in the gray and the observed Moran's I of our model in orange. In and ideal scenario, the observed Moran's I line would be located within the distribution of the randomized Moran's I distribution. However, it is evident that there is still spatial autocorrelation in house prices that is unaccounted for in our model. 
@@ -1456,7 +1545,7 @@ test %>%
 
 
 
-Overall, this model is not very effective. Although the error in the model is about `mape * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. The most powerful predictor in our model was distance from education with an estimated value of -6.260e+01. 
+Overall, this model is not very effective. Although the error in the model is about `r mape * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties. The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed. The most powerful predictor in our model was distance from education with an estimated value of -6.260e+01. 
 
 
 ### Over/Under prediction through racial and economic lense
@@ -1480,478 +1569,24 @@ grid.arrange(ncol = 2,
 
 
 # Evaluation of Over or Under Prediction of model on 
-st_join(test, acsZipsCol.2019.sf) %>% 
+A <- st_join(test, acsZipsCol.2019.sf) %>% 
   group_by(incomeContext) %>%
   summarize(mean.MAPE = scales::percent(mean(SalePrice.APE, na.rm = T))) %>%
   st_drop_geometry() %>%
-  spread(incomeContext, mean.MAPE) %>%
-  kable(caption = "Test set MAPE by neighborhood income context")
+  spread(incomeContext, mean.MAPE)
+
+A <- A %>%
+  rename("No Data" = 3)
+datatable(A)
 ```
 
 
 # Discussion
 
-Overall, this model is not very effective. Although the error in the model is about `r mean(test$SalePrice.APE) * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties(`r paste0("$",mean(test$SalePrice.AbsError, na.rm=TRUE))`). The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed.   
-Further, the model seems is better at predicting lower value homes than higher value homes. It consistently underpredicts those homes at higher actual values. Perhaps this could be remedied by gathering more data on those higher priced homes or using a method of regression other than OLS, as OLS tends to predict well on values centered around the mean, but not the outliers.
-
+Overall, this model is not very effective. Although the error in the model is about `r mean(test$SalePrice.APE) * 100`%, the error is large enough that if someone were to use this model, they could purchase two properties(`r paste0("$",mean(test$SalePrice.AbsError, na.rm=TRUE))`). The most interesting variables that we found were the racial categories, because they challenged our own assumptions of what the prices would be. There were a variety of important features; however, the only important numeric variable was `Edu_mean_distance`. The adjusted p-value in our model is 0.5519, which accounts for about half of the variation in the model. Our model was impacted by spatial autocorrelation, as it does appear that our geographic locations are not randomly distributed.   
+Further, the model seems better at predicting lower value homes than higher value homes. It consistently underpredicts those homes at higher actual values. Perhaps this could be remedied by gathering more data on those higher priced homes or using a method of regression other than OLS, as OLS tends to predict well on values centered around the mean, but not the outliers.
 
 # Conclusion
 
 We would not recommend this model over Zillow’s existing model for a few reasons. As mentioned above, there are issues with the model’s ability to predict on higher value houses and account for existing spatial autocorrelation. Further, the model’s errors are much higher than [Zillow’s advertised error](https://www.zillow.com/z/zestimate/). Further, we have not tested this model outside of Boulder. We do not know if this model will be generalizable to other markets.
 
-# Appendix 
-AKA Code hoarding because we have a problem
-
-### Block Groups
-```{r eval=FALSE, include=FALSE}
-# Read in census Block groups
- acsBGCol.2019.sf <- get_acs(geography = "block group",
-         year = 2019,
-         variables = Variables$name, 
-         state="Colorado",
-         county= c("Boulder"),
-         geometry=T,
-         output = "wide") %>% 
-   st_transform(CO_statePlaneCentral) %>%
-   dplyr::select (GEOID, NAME, all_of(paste0(Variables$name,"E")))
-```
-
-
-### Drafts for Race data
-```{r Race_dontrun, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-#once again did more work then needed, but the point is it works and this doesn't
-
-# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries. 
-
-
-#q3 is the census tracts that have a median amount of white people. As a fixed effect, this would say for census tracts with the median amount of white people, what does the price look like?
-#q4_5 is census tracts that have above the median amount of white people. 
-#q1_3 is census tracts that have less then the median amount of white people
-
-#This disadvantage to using fixed effects is that they have to be binary, either they do or do not contain something, so in the case of race I used below the median, above the median and median as binaried functions. 
-
-White <- acsTractsCol.2019.sf %>% 
-  select(GEOID, White_pop) %>%
-  mutate(White_Quartile = q5(acsTractsCol.2019.sf$White_pop))
-
-f <- studentData %>%
-  mutate(
-    white = as.integer(st_intersects(geometry,White)))
-
-Black <- acsTractsCol.2019.sf %>% 
-  select(GEOID, Black_pop) %>%
-  mutate(Black_Quartile = q5(acsTractsCol.2019.sf$Black_pop))
-
-Asian <- acsTractsCol.2019.sf %>% 
-  select(GEOID, Asian_pop) %>%
-  mutate(Asian_Quartile = q5(acsTractsCol.2019.sf$Asian_pop))
-
-American_Indian <- acsTractsCol.2019.sf %>% 
-  select(GEOID, American_Indian_pop) %>%
-  mutate(American_Indian_Quartile = q5(acsTractsCol.2019.sf$American_Indian_pop))
-
-Hawiian_PI <- acsTractsCol.2019.sf %>% 
-  select(GEOID, Hawiian_PI_pop) %>%
-  mutate(Hawiian_PI_Quartile = q5(acsTractsCol.2019.sf$Hawiian_PI_pop))
-
-OtherRace <- acsTractsCol.2019.sf %>% 
-  select(GEOID, OtherRace_pop) %>%
-  mutate(OtherRace_Quartile = q5(acsTractsCol.2019.sf$OtherRace_pop))
-
-two_or_more <- acsTractsCol.2019.sf %>% 
-  select(GEOID, two_or_more_pop) %>%
-  mutate(two_or_more_Quartile = q5(acsTractsCol.2019.sf$two_or_more_pop))
-
-two_other <- acsTractsCol.2019.sf %>% 
-  select(GEOID, two_other_pop) %>%
-  mutate(two_other_Quartile = q5(acsTractsCol.2019.sf$two_other_pop))
-
-two_or_more_exclude <- acsTractsCol.2019.sf %>% 
-  select(GEOID, two_or_more_exclude_pop) %>%
-  mutate(two_or_more_exclude_Quartile = q5(acsTractsCol.2019.sf$two_or_more_exclude_pop))
-
-# I did more work than I had to. I'm remaking this to just have factored quartiles. This block does not run so no worries.
-
-White <- acsTractsCol.2019.sf %>% 
-  select(GEOID, White_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$White_pop)),
-         Race_Whiteq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_Whiteq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_Whiteq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-Black <- acsTractsCol.2019.sf %>% 
-  select(GEOID, Black_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$Black_pop)),
-         Race_Blackq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_Blackq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_Blackq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-Asian <- acsTractsCol.2019.sf %>% 
-  select(GEOID, Asian_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$Asian_pop)),
-         Race_Asianq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_Asianq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_Asianq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-American_Indian <- acsTractsCol.2019.sf %>% 
-  select(GEOID, American_Indian_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$American_Indian_pop)),
-         Race_American_Indianq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_American_Indianq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_American_Indianq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-Hawiian_PI <- acsTractsCol.2019.sf %>% 
-  select(GEOID, Hawiian_PI_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$Hawiian_PI_pop)),
-         Race_Hawiian_PIq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_Hawiian_PIq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_Hawiian_PIq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-OtherRace <- acsTractsCol.2019.sf %>% 
-  select(GEOID, OtherRace_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$OtherRace_pop)),
-         RaceOther_Raceq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         RaceOther_Raceq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         RaceOther_Raceq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-two_or_more <- acsTractsCol.2019.sf %>% 
-  select(GEOID, two_or_more_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$two_or_more_pop)),
-         Race_two_or_moreq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_two_or_moreq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_two_or_moreq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-two_other <- acsTractsCol.2019.sf %>% 
-  select(GEOID, two_other_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$two_other_pop)),
-         Race_two_otherq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_two_otherq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_two_otherq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-two_or_more_exclude <- acsTractsCol.2019.sf %>% 
-  select(GEOID, two_or_more_exclude_pop) %>%
-  mutate(Quartile = as.numeric(q5(acsTractsCol.2019.sf$two_or_more_exclude_pop)),
-         Race_two_or_more_excludeq3 = ifelse(Quartile == 3, TRUE, FALSE),
-         Race_two_or_more_excludeq4_5 = ifelse(Quartile > 3, TRUE, FALSE),
-         Race_two_or_more_excludeq1_2 = ifelse(Quartile < 3, TRUE, FALSE))
-
-```
-
-### Checking how school distrcits work
-```{r eval=FALSE, include=FALSE}
-# I'm trying to check how the distrcit groups are made, and it looks like they are in order from the rows they were assigned. 
-
-studentData %>%
-  st_drop_geometry() %>%
-  group_by(District) %>%
-  summarize(Freq = n())
-
-ggplot() +
-  geom_sf(data = acsSchoolDistrctssCol.2019.sf,
-          aes(fill = id)) +
-  geom_sf(data = studentData %>%
-            filter(District == "District1"),
-          color = "Red") +
-  geom_sf(data = studentData %>%
-            filter(District == "District4"),
-          color = "Black")
-```
-
-### Boulder City Fixed Effect
-
-```{r city_Limits, eval=FALSE, include=FALSE, results='hide'}
-boulderCityLimits <- st_read("https://opendata.arcgis.com/datasets/955e7a0f52474b60a9866950daf10acb_0.geojson") %>%
-  st_transform(st_crs(acsTractsCol.2019.sf)) %>%
-  mutate(inCity = 1)
-
-# Determine if a house is within the city or not - used for cases in which only city data is available
-studentData <- studentData %>%
-  mutate(withinCity = as.integer(st_intersects(geometry,boulderCityLimits)))
-
-studentData <- studentData %>%
-  mutate(withinCity = replace_na(withinCity,"0"))
-
-# Change 
-#studentData <- studentData %>%
-#  mutate(withinCity = ifelse(withinCity > 0, 1, 0))
-
-#zips <- c(80301:80305)
-#zips <- as.character(zips)
-
-#ggplot() +
-#  geom_sf(data = acsZipsCol.2019.sf %>%
-#            filter(GEOID %in% zips)) +
-#  geom_sf(data = studentData) +
-#  geom_sf(data = boulderCityLimits,
-#          fill = "transparent",
-#          border = 2)
-```
-
-### Zoning Districts
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
-# # Locations of Zoning districts
-# ## https://open-data.bouldercolorado.gov/datasets/e88004e26b9e42cfba32129fb8731f41_0/explore?location=40.025701%2C-105.239775%2C11.45
-# ## City of Boulder Colorado Zoning Districts. Including residential, business, industrial, public, agricultural, mix of residential and business, residential mobile homes, main street area and mixed density residential.
-# zoning <- st_read("https://opendata.arcgis.com/datasets/e88004e26b9e42cfba32129fb8731f41_0.geojson") %>%
-#   st_transform(CO_statePlaneCentral)
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = zoning) +
-#   labs(title = "Zoning Districts")
-```
-
-### Rental Properties
-```{r colorado_data, eval=FALSE, message=TRUE, warning=FALSE, include=FALSE}
-
-# # Locations of Rental Properties (by license)
-# ## https://open-data.bouldercolorado.gov/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0/explore?location=40.013774%2C-105.256817%2C16.81
-# rentalHomes <- st_read("https://opendata.arcgis.com/datasets/92f70ea894ef47a582bb0d656aa4aa7d_0.geojson") %>%
-#   st_transform(CO_statePlaneCentral)
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = st_centroid(rentalHomes)) +
-#   labs(title = "Rental Homes")
-# 
-# 
-# # Locations of Accessory Dwelling Units
-# ## https://open-data.bouldercolorado.gov/datasets/669935e6d13c406497cd9cbbbd7951b2_0/explore?location=40.023716%2C-105.253583%2C11.91
-# ## For explanation on what ADU's are: https://planning.org/knowledgebase/accessorydwellings/ 
-# adus <- st_read("https://opendata.arcgis.com/datasets/669935e6d13c406497cd9cbbbd7951b2_0.geojson") %>%
-#   st_transform(CO_statePlaneCentral)
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = adus) +
-#   labs(title = "Accessory Dwelling Units")
-# 
-# 
-```
-
-
-### Parks and Trees
-```{r eval=FALSE, include=FALSE}
-#addresses for buildings https://open-data.bouldercolorado.gov/datasets/d63e537da54640bd967c2fedc4c99a92_0/explore?location=40.026211%2C-105.232810%2C11.82 
-# Addresses <- st_read("https://opendata.arcgis.com/datasets/d63e537da54640bd967c2fedc4c99a92_0.geojson") %>%
-#   st_transform(CO_statePlaneCentral)
-# 
-# ggplot() +
-#   geom_sf(data = st_union(acsTractsCol.2019.sf),
-#           fill = "transparent") +
-#   geom_sf(data = Addresses) +
-#   labs(title = "Addresses")
-
-# Properties managed by parks and recreation polygons ## https://open-data.bouldercolorado.gov/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1/explore?location=40.026750%2C-105.234200%2C12.05 
-Parks <- st_read("https://opendata.arcgis.com/datasets/fdfc0410e75c48b6b9e53cf94bdbe224_1.geojson")
-ggplot() +
-  geom_sf(data = acsTractsCol.2019.sf) +
-  geom_sf(data = Parks,
-          fill = "pink")
-
-# Urban trees
-## https://open-data.bouldercolorado.gov/datasets/dbbae8bdb0a44d17934243b88e85ef2b_0/explore?location=40.015538%2C-105.275671%2C16.12
-trees <- st_read("https://opendata.arcgis.com/datasets/dbbae8bdb0a44d17934243b88e85ef2b_0.geojson") %>%
-    st_transform(CO_statePlaneCentral)
-
-ggplot() +
-  geom_sf(data = st_union(acsTractsCol.2019.sf),
-          fill = "transparent") +
-  geom_sf(data = trees) +
-  labs(title = "Street Trees")
-
-```
-
-## Nearest Neighbor Plots
-```{r NN_Grocery_plots, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-st_drop_geometry(studentData) %>%
-  filter(toPredict == 0) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID,contains("grocery")) %>%
-  pivot_longer(cols = contains("grocery"), 
-               names_to = "Nearest_Neighbor",
-               values_to = "Distance") %>%
-  group_by(Nearest_Neighbor, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Nearest_Neighbor) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
-    plotTheme()
-```
-
-
-```{r NN_Restaurant_plots, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID,contains("restaurant")) %>%
-  pivot_longer(cols = contains("restaurant"), 
-               names_to = "Nearest_Neighbor",
-               values_to = "Distance") %>%
-  group_by(Nearest_Neighbor, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Nearest_Neighbor) +
-    labs(title = "Nearest Neighbor Restaurant and Price") +
-    plotTheme()
-```
-
-```{r NN_Education_plots, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID,contains("Education")) %>%
-  pivot_longer(cols = contains("Education"), 
-               names_to = "Nearest_Neighbor",
-               values_to = "Distance") %>%
-  group_by(Nearest_Neighbor, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Nearest_Neighbor) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
-    plotTheme()
-```
-
-```{r NN_Museums_plots, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID,contains("Museums")) %>%
-  pivot_longer(cols = contains("Museums"), 
-               names_to = "Nearest_Neighbor",
-               values_to = "Distance") %>%
-  group_by(Nearest_Neighbor, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Nearest_Neighbor) +
-    labs(title = "Nearest Neighbor Grocery Store and Price") +
-    plotTheme()
-```
-
-
-```{r ComparingNN1_plots, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID, ends_with("nn1")) %>%
-  pivot_longer(cols = ends_with("nn1"), 
-               names_to = "Amenities",
-               values_to = "Distance") %>%
-  group_by(Amenities, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor 1 all Locations and Price") +
-    plotTheme()
-```
-
-
-```{r ComparingNN2_plots, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID, ends_with("nn2")) %>%
-  pivot_longer(cols = ends_with("nn2"), 
-               names_to = "Amenities",
-               values_to = "Distance") %>%
-  group_by(Amenities, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor 2 all Locations and Price") +
-    plotTheme()
-```
-
-```{r ComparingNN3_plots, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID, ends_with("nn3")) %>%
-  pivot_longer(cols = ends_with("nn3"), 
-               names_to = "Amenities",
-               values_to = "Distance") %>%
-  group_by(Amenities, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor 3 all Locations and Price") +
-    plotTheme()
-```
-
-```{r ComparingNN4_plots, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID, ends_with("nn4")) %>%
-  pivot_longer(cols = ends_with("nn4"), 
-               names_to = "Amenities",
-               values_to = "Distance") %>%
-  group_by(Amenities, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor 4 all Locations and Price") +
-    plotTheme()
-```
-
-```{r ComparingNN5_plots, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE, results='hold'}
-
-st_drop_geometry(studentData) %>%
-  filter(price < max) %>%
-  select(1,MUSA_ID, ends_with("nn5")) %>%
-  pivot_longer(cols = ends_with("nn5"), 
-               names_to = "Amenities",
-               values_to = "Distance") %>%
-  group_by(Amenities, price) %>%
-  summarize(mean_distance = mean(Distance)) %>%
-  ggplot(aes(mean_distance,price)) +
-    geom_point(size = .5) +
-    geom_smooth(method = "lm", se = F, colour = "#FA7800") +
-    facet_wrap(~Amenities) +
-    labs(title = "Nearest Neighbor 5 all Locations and Price") +
-    plotTheme()
-```
-
-## Categorical Variables Plots
-
-```{r eval=FALSE, fig.height=15, fig.width=10, message=FALSE, warning=FALSE, include=FALSE}
-st_drop_geometry(studentData) %>% 
-  dplyr::select(price, designCodeDscr, ConstCodeDscr, carStorageTypeDscr) %>%
-  # mutate(NUM_FLOORS = as.factor(NUM_FLOORS)) %>%
-  filter(price <= 5000000) %>%
-  gather(Variable, Value, -price) %>% 
-   ggplot(aes(Value, price)) +
-     geom_bar(position = "dodge", stat = "summary", fun.y = "mean") +
-     facet_wrap(~Variable, ncol = 1, scales = "free") +
-     labs(title = "Price as a function of\ncategorical variables", y = "Mean_Price") +
-     plotTheme() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-## OLS OLD
-```{r eval=FALSE, warning=FALSE, include=FALSE}
-cor.test(studentData.training$Edu_mean_distance, studentData.training$price, method = "pearson")
-
-cor.test(studentData.training$TotalFinishedSF, studentData.training$price, method = "pearson")
-
-livingReg <- lm(price ~ TotalFinishedSF, data = studentData.training)
-
-summary(livingReg)
-```
