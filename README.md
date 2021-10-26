@@ -20,10 +20,36 @@ Tasks to complete
   - [X] MAE / MAPE
 - [X] Regression Interpretation -
   - [X] Do we need to return to feature engineering?
-- [ ] Report
-  - [ ] Intro
-  - [ ] Data
-  - [ ] Methods
-  - [ ] Results
-  - [ ] Discussion
-  - [ ] Conclusion
+- [X] Report
+  - [X] Intro
+  - [X] Data
+	- [X] Brief overview of data collection
+	- [X] Table of summary statistics w/ variable descriptions, sorted by category (internal, amenities/public services, spatial structure)
+	- [X] Correlation matrix
+	- [X] 4 home price correlation scatter plots - looking for interesting open data
+		- [X] Internal characteristics
+		- [X] Education nn's
+		- [X] Amenities nn's
+		- [X] Public services nn's
+	- [X] 1 map of home prices (dependent variable)
+	- [X] 3 maps of the 3 most interesting independent variables
+		- [X] Zip code
+		- [X] White / Black / Asian Quartiles
+	- [X] Any other charts/maps of interest
+  - [X] Methods
+	- [X] Discussion of modeling methods for a lay-person
+  - [X] Results
+	- [X] Split toPredict == 0 into training and test datasets
+	- [X] Polished table of the summary for the model for the training set
+	- [X] RESULTS OF CROSS-VALIDATION TESTS 
+		- [X] Mean and Standard deviation MAE - use 100 folds and plot cross-validation MAE as a histogram
+	- [X] Plot of predicted prices as a function of observed prices
+	- [X] Map of residuals for test set
+		- [X] Moran's I of test model
+		- [X] Plot of spatial lag in errors
+	- [X] Map of predicted values for all homes
+	- [X] Map of MAPE by neighborhood for test set
+	- [X] Scatterplot of MAPE (per neighborhood) as a function of mean price by neighborhood
+	- [X] Test generalizability on two groups (i.e. race/income)
+  - [X] Discussion
+  - [X] Conclusion
